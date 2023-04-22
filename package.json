@@ -1,0 +1,26 @@
+{
+  "name": "webservice-template-nodejs",
+  "version": "1.0.0",
+  "description": "Template for Node.js webservice",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/app",
+    "dev": "nodemon src/app"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JoaoGuedes01/webservice-template-nodejs.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JoaoGuedes01/webservice-template-nodejs/issues"
+  },
+  "homepage": "https://github.com/JoaoGuedes01/webservice-template-nodejs#readme",
+  "dependencies": {
+    "express": "^4.18.2",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^4.6.2"
+  }
+}

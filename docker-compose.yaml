@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  webservice-template:
+    build: .
+    container_name: webservice-template
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+    restart: always
