@@ -2,12 +2,14 @@ const express = require('express')
 const swaggerUi = require('swagger-ui-express')
 const swaggerDocument = require('../swagger/swagger.json')
 const app = express()
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 3002
+
+const {PrepareDB} = require('./utils/mysql')
 
 app.use(express.json())
 
 // Landing Page for the webservice
-app.get('/', (req,res)=>res.send('Landing Route for webservice'))
+app.get('/', (req,res)=>res.send('MySQL Webservice'))
 
 //Routing /api requests to the api router
 const apiRoutes = require('./routes/api-routes')
@@ -24,5 +26,6 @@ app.use((req, res, next) => {
   })
 
 app.listen(port, ()=>{
-    console.log(`Webservice listening in port ${port}`)
+    console.log(`MySQL webservice listening in port ${port}`)
+    PrepareDB()
 })

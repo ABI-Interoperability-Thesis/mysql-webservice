@@ -2,5 +2,5 @@ const express = require('express');
 const router = express.Router();
 const apiController = require('../controllers/api-controller')
 
-router.get('/sample-route', apiController.SampleController)
+router.post('/create-table', apiController.CreateTable)
 module.exports = router;
