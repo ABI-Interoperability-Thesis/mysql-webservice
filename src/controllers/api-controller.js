@@ -1,12 +1,28 @@
-const {CreateTableDB} = require('../utils/mysql')
+const { sequelize } = require('../utils/sequelize')
+const { DataTypes } = require('sequelize');
 
-const CreateTable = async (req,res) =>{
-    const {model_name, mappings} = req.body
-    const create_table_res = await CreateTableDB(model_name, mappings)
-    return res.send(create_table_res)
-    
+// Import Models
+const {ClientRequests} = require('../models/ClientRequests')
+
+const CreateRequest = async (req, res) => {
+    const { table_name, values } = req.body
+    const {Table} = require(`../models/${table_name}.js`)
+    // Sync with db to create tables if they dont exist
+    await sequelize.sync()
+    const new_row = await Table.create(values)
+
+    const new_req = await ClientRequests.create({
+        model_data_id: new_row.req_id,
+        answered: false,
+        answer: 'none',
+        request_type: table_name,
+        client_id: '123'
+    })
+
+    return res.send(new_row)
+
 }
 
 module.exports = {
-    CreateTable: CreateTable
+    CreateRequest: CreateRequest
 }

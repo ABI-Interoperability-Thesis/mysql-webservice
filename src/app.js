@@ -1,10 +1,11 @@
+require('dotenv').config();
 const express = require('express')
 const swaggerUi = require('swagger-ui-express')
 const swaggerDocument = require('../swagger/swagger.json')
 const app = express()
 const port = process.env.PORT || 3002
 
-const {PrepareDB} = require('./utils/mysql')
+const {PrepareDB} = require('./utils/sequelize')
 
 app.use(express.json())
 
