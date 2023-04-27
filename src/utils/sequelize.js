@@ -14,6 +14,15 @@ const sequelize = new Sequelize(db_name, db_user, db_password, {
     dialect: 'mysql'
 });
 
+const GenerateConnection = () => {
+    const sequelize_conn = new Sequelize(db_name, db_user, db_password, {
+        host: endpoint,
+        dialect: 'mysql'
+    });
+
+    return sequelize_conn
+}
+
 const PrepareDB = async () => {
     try {
         await sequelize.sync();
@@ -27,5 +36,6 @@ const PrepareDB = async () => {
 
 module.exports = {
     PrepareDB: PrepareDB,
-    sequelize: sequelize
+    sequelize: sequelize,
+    GenerateConnection: GenerateConnection
 }
