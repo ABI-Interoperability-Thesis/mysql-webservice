@@ -3,7 +3,9 @@ const { DataTypes } = require('sequelize');
 
 // Import Models
 const { ClientRequests } = require('../models/ClientRequests')
+const { AttributeMappings } = require('../models/AttributeMappings')
 const { GenerateConnection } = require('../utils/sequelize')
+
 const CreateRequest = async (req, res) => {
     const new_sequelize = GenerateConnection()
     const { table_name, values } = req.body
@@ -72,10 +74,28 @@ const UpdateRequest = (req, res) => {
             console.error(error);
             return res.send(error)
         });
+}
+
+const MatchAttribute = async (req, res) => {
+    const { attribute, value } = req.body
+
+    try {
+        const attribute_value = await AttributeMappings.findOne({
+            where: {
+                attribute,
+                value
+            },
+            attributes: ['mapping']
+        })
+        return res.send(attribute_value.mapping)
+    } catch (error) {
+        return res.status(404).send(`No mapping found for ${attribute} = ${value}`)
+    }
 
 }
 
 module.exports = {
     CreateRequest: CreateRequest,
-    UpdateRequest: UpdateRequest
+    UpdateRequest: UpdateRequest,
+    MatchAttribute: MatchAttribute
 }

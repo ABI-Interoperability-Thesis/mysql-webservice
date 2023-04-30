@@ -27,7 +27,7 @@ const PrepareDB = async () => {
     try {
         await sequelize.sync();
     } catch (error) {
-        res.send({
+        console.log({
             message: 'there was an error',
             error
         })
