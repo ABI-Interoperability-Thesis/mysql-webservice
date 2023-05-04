@@ -1,5 +1,5 @@
 const { sequelize } = require('../utils/sequelize')
-const { DataTypes } = require('sequelize');
+const { DataTypes, QueryTypes } = require('sequelize');
 
 // Import Models
 const { ClientRequests } = require('../models/ClientRequests')
@@ -91,11 +91,30 @@ const MatchAttribute = async (req, res) => {
     } catch (error) {
         return res.status(404).send(`No mapping found for ${attribute} = ${value}`)
     }
+}
 
+const GetAllRequests = async(req,res) => {
+    const all_requests = await ClientRequests.findAll();
+
+    return res.send(all_requests)
+}
+
+const DeleteRequest = async (req,res)=> {
+    const {request_id,table_name} = req.params
+    await ClientRequests.destroy({
+        where:{model_data_id: request_id}
+    })
+
+    const deleteQuery = `DELETE FROM ${table_name} WHERE req_id = "${request_id}"`;
+
+    await sequelize.query(deleteQuery, { type: QueryTypes.DELETE })
+    return res.send('Row deleted successully')
 }
 
 module.exports = {
     CreateRequest: CreateRequest,
     UpdateRequest: UpdateRequest,
-    MatchAttribute: MatchAttribute
+    MatchAttribute: MatchAttribute,
+    GetAllRequests: GetAllRequests,
+    DeleteRequest: DeleteRequest
 }

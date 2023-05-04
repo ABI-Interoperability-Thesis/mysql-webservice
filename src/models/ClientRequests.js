@@ -8,7 +8,7 @@ const ClientRequests = sequelize.define('client-requests', {
         primaryKey: true
     },
     answered: {
-        type: DataTypes.STRING,
+        type: DataTypes.TINYINT,
         allowNull: false
     },
     answer: {
