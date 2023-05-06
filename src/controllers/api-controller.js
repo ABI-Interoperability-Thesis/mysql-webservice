@@ -1,9 +1,13 @@
 const { sequelize } = require('../utils/sequelize')
-const { DataTypes, QueryTypes } = require('sequelize');
+const { DataTypes, QueryTypes, Model } = require('sequelize');
+const { v4: uuidv4 } = require('uuid');
+
 
 // Import Models
 const { ClientRequests } = require('../models/ClientRequests')
 const { AttributeMappings } = require('../models/AttributeMappings')
+const { Models } = require('../models/Models')
+const { ModelAttributes } = require('../models/ModelAttributes')
 const { GenerateConnection } = require('../utils/sequelize')
 
 const CreateRequest = async (req, res) => {
@@ -93,16 +97,16 @@ const MatchAttribute = async (req, res) => {
     }
 }
 
-const GetAllRequests = async(req,res) => {
+const GetAllRequests = async (req, res) => {
     const all_requests = await ClientRequests.findAll();
 
     return res.send(all_requests)
 }
 
-const DeleteRequest = async (req,res)=> {
-    const {request_id,table_name} = req.params
+const DeleteRequest = async (req, res) => {
+    const { request_id, table_name } = req.params
     await ClientRequests.destroy({
-        where:{model_data_id: request_id}
+        where: { model_data_id: request_id }
     })
 
     const deleteQuery = `DELETE FROM ${table_name} WHERE req_id = "${request_id}"`;
@@ -111,10 +115,70 @@ const DeleteRequest = async (req,res)=> {
     return res.send('Row deleted successully')
 }
 
+const CreateModel = async (req, res) => {
+    const { model_name, description, attributes } = req.body
+
+    const uniqueID = uuidv4()
+    const new_model = await Models.create({
+        model_id: uniqueID,
+        model_name: model_name,
+        description: description,
+        deployed: false,
+        attribute_count: attributes.length
+    })
+
+    for (let i = 0; i < attributes.length; i++) {
+        const attribute = attributes[i];
+        const new_attribute = {
+            model_id: uniqueID,
+            name: attribute.name,
+            description: attribute.description,
+            type: attribute.data_type
+        }
+
+        await ModelAttributes.create(new_attribute)
+
+    }
+
+    return res.send(`Model ${model_name} created with ${attributes.length} attributes`)
+}
+
+const GetModels = async (req, res) => {
+    const all_models = await Models.findAll()
+
+    return res.send(all_models)
+}
+
+const GetModel = async (req, res) => {
+    const model_id = req.params.model_id
+    const model = await Models.findOne({
+        where: {
+            model_id
+        }
+    })
+
+    return res.send(model)
+}
+
+const GetModelAttributes = async (req, res) => {
+    const model_id = req.params.model_id
+    const model_attributes = await ModelAttributes.findAll({
+        where: {
+            model_id
+        }
+    })
+
+    return res.send(model_attributes)
+}
+
 module.exports = {
     CreateRequest: CreateRequest,
     UpdateRequest: UpdateRequest,
     MatchAttribute: MatchAttribute,
     GetAllRequests: GetAllRequests,
-    DeleteRequest: DeleteRequest
+    DeleteRequest: DeleteRequest,
+    CreateModel: CreateModel,
+    GetModels: GetModels,
+    GetModelAttributes: GetModelAttributes,
+    GetModel: GetModel
 }
