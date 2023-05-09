@@ -20,6 +20,14 @@ const AttributeMappings = sequelize.define('attribute-mappings', {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    model_id: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    model_name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
 }, {
     tableName: 'attribute_mappings',
     timestamps: false

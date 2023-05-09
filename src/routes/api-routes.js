@@ -13,4 +13,13 @@ router.get('/models/:model_id', apiController.GetModel)
 router.get('/model-attributes/:model_id', apiController.GetModelAttributes)
 
 router.post('/models', apiController.CreateModel)
+
+router.post('/clients', apiController.CreateClient)
+router.get('/clients', apiController.GetClients)
+router.get('/clients/:client_id', apiController.GetSingleClient)
+router.delete('/clients/:client_id', apiController.DeleteClient)
+
+router.get('/attribute-mappings', apiController.GetAllAttributeMappings)
+router.post('/attribute-mappings', apiController.CreateAttributeMappings)
+
 module.exports = router;

@@ -8,6 +8,7 @@ const { ClientRequests } = require('../models/ClientRequests')
 const { AttributeMappings } = require('../models/AttributeMappings')
 const { Models } = require('../models/Models')
 const { ModelAttributes } = require('../models/ModelAttributes')
+const { Clients } = require('../models/Clients')
 const { GenerateConnection } = require('../utils/sequelize')
 
 const CreateRequest = async (req, res) => {
@@ -171,6 +172,72 @@ const GetModelAttributes = async (req, res) => {
     return res.send(model_attributes)
 }
 
+const CreateClient = async (req, res) => {
+    const { email, name, phone } = req.body
+    const uniqueID = uuidv4()
+
+    const created_client = await Clients.create({
+        client_id: uniqueID,
+        email,
+        name,
+        phone
+    })
+
+    return res.send(created_client)
+}
+
+const GetClients = async (req, res) => {
+    const all_clients = await Clients.findAll()
+    return res.send(all_clients)
+}
+
+const GetSingleClient = async (req, res) => {
+    const client_id = req.params.client_id
+
+    const client = await Clients.findOne({
+        where: {
+            client_id
+        }
+    })
+
+    return res.send(client)
+}
+
+const DeleteClient = async (req, res) => {
+    const client_id = req.params.client_id
+    const deleted_client = await Clients.destroy({
+        where: { client_id }
+    })
+
+    console.log(deleted_client)
+
+    return res.send('ok')
+}
+
+const GetAllAttributeMappings = async (req, res) => {
+    const all_attribute_mappings = await AttributeMappings.findAll()
+
+    return res.send(all_attribute_mappings)
+}
+
+const CreateAttributeMappings = async (req, res) => {
+    const {attribute, model_id, model_name, mappings} = req.body
+
+    const prepared_data = mappings.map((mapping)=>{
+        return {
+            model_id,
+            attribute,
+            model_name,
+            value: mapping.value,
+            mapping: mapping.mapping
+        }
+    })
+
+    const created_mappings = await AttributeMappings.bulkCreate(prepared_data)
+
+    return res.send(created_mappings)
+}
+
 module.exports = {
     CreateRequest: CreateRequest,
     UpdateRequest: UpdateRequest,
@@ -180,5 +247,11 @@ module.exports = {
     CreateModel: CreateModel,
     GetModels: GetModels,
     GetModelAttributes: GetModelAttributes,
-    GetModel: GetModel
+    GetModel: GetModel,
+    CreateClient: CreateClient,
+    GetClients: GetClients,
+    GetSingleClient: GetSingleClient,
+    DeleteClient: DeleteClient,
+    GetAllAttributeMappings: GetAllAttributeMappings,
+    CreateAttributeMappings: CreateAttributeMappings
 }
