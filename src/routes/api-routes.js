@@ -3,6 +3,7 @@ const router = express.Router();
 const apiController = require('../controllers/api-controller')
 
 router.get('/requests', apiController.GetAllRequests)
+router.get('/requests/:req_id', apiController.GetRequestById)
 router.post('/create-request', apiController.CreateRequest)
 router.put('/update-request', apiController.UpdateRequest)
 router.post('/match-attribute', apiController.MatchAttribute)

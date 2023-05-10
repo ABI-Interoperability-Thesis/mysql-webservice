@@ -13,7 +13,7 @@ const { GenerateConnection } = require('../utils/sequelize')
 
 const CreateRequest = async (req, res) => {
     const new_sequelize = GenerateConnection()
-    const { table_name, values } = req.body
+    const { table_name, values, client_id, values_pre_proc } = req.body
 
     const sqlz_obj = GenerateSequelizeTable(values)
 
@@ -22,22 +22,33 @@ const CreateRequest = async (req, res) => {
         timestamps: false
     }
 
+    const sqlz_obj_pre_proc = GenerateSequelizeTablePreProc(values)
+    const table_name_pre_proc = table_name + '_pre_proc'
+
+    const table_options_pre_proc = {
+        tableName: table_name_pre_proc,
+        timestamps: false
+    }
+
     const NewTable = new_sequelize.define(table_name, sqlz_obj, table_options)
+    const NewTablePreProc = new_sequelize.define(table_name_pre_proc, sqlz_obj_pre_proc, table_options_pre_proc)
 
     await new_sequelize.sync()
     const new_row = await NewTable.create(values)
+    const new_row_pre_proc = await NewTablePreProc.create(values_pre_proc)
 
     const new_req = await ClientRequests.create({
         model_data_id: new_row.req_id,
         answered: false,
         answer: 'none',
         request_type: table_name,
-        client_id: '123'
+        client_id: client_id
     })
 
     return res.send({
         new_row,
-        new_req
+        new_req,
+        new_row_pre_proc
     })
 
 }
@@ -55,6 +66,27 @@ const GenerateSequelizeTable = (values) => {
         } else {
             sqlz_obj[field] = {
                 type: DataTypes.STRING,
+                allowNull: true,
+            }
+        }
+    })
+
+    return sqlz_obj
+}
+
+const GenerateSequelizeTablePreProc = (values) => {
+    let sqlz_obj = {}
+    Object.entries(values).forEach(([field, value]) => {
+        if (field === 'req_id') {
+            sqlz_obj[field] = {
+                type: DataTypes.STRING,
+                allowNull: false,
+                primaryKey: true,
+                autoIncrement: false
+            }
+        } else {
+            sqlz_obj[field] = {
+                type: DataTypes.INTEGER,
                 allowNull: true,
             }
         }
@@ -106,14 +138,19 @@ const GetAllRequests = async (req, res) => {
 
 const DeleteRequest = async (req, res) => {
     const { request_id, table_name } = req.params
+    const table_name_pre_proc = table_name + '_pre_proc'
+
     await ClientRequests.destroy({
         where: { model_data_id: request_id }
     })
 
     const deleteQuery = `DELETE FROM ${table_name} WHERE req_id = "${request_id}"`;
+    const deleteQueryPreProc = `DELETE FROM ${table_name_pre_proc} WHERE req_id = "${request_id}"`;
 
     await sequelize.query(deleteQuery, { type: QueryTypes.DELETE })
-    return res.send('Row deleted successully')
+    await sequelize.query(deleteQueryPreProc, { type: QueryTypes.DELETE })
+
+    return res.send('Rows deleted successully')
 }
 
 const CreateModel = async (req, res) => {
@@ -221,9 +258,9 @@ const GetAllAttributeMappings = async (req, res) => {
 }
 
 const CreateAttributeMappings = async (req, res) => {
-    const {attribute, model_id, model_name, mappings} = req.body
+    const { attribute, model_id, model_name, mappings } = req.body
 
-    const prepared_data = mappings.map((mapping)=>{
+    const prepared_data = mappings.map((mapping) => {
         return {
             model_id,
             attribute,
@@ -236,6 +273,34 @@ const CreateAttributeMappings = async (req, res) => {
     const created_mappings = await AttributeMappings.bulkCreate(prepared_data)
 
     return res.send(created_mappings)
+}
+
+const GetRequestById = async (req, res) => {
+    const req_id = req.params.req_id
+
+    const client_request = await ClientRequests.findOne({
+        where: {
+            model_data_id: req_id
+        }
+    })
+
+    const table_name_literal = client_request.request_type
+    const table_name_pre_proc = client_request.request_type + '_pre_proc'
+
+    const find_request_literal_query = `SELECT * FROM ${table_name_literal} WHERE req_id = "${req_id}"`;
+    const find_request_pre_proc_query = `SELECT * FROM ${table_name_pre_proc} WHERE req_id = "${req_id}"`;
+
+    const find_request_literal =  await sequelize.query(find_request_literal_query, { type: QueryTypes.SELECT })
+    const find_request_pre_proc =  await sequelize.query(find_request_pre_proc_query, { type: QueryTypes.SELECT })
+
+
+    const final_res = {
+        client_request,
+        find_request_literal: find_request_literal[0],
+        find_request_pre_proc: find_request_pre_proc[0]
+    }
+
+    return res.send(final_res)
 }
 
 module.exports = {
@@ -253,5 +318,6 @@ module.exports = {
     GetSingleClient: GetSingleClient,
     DeleteClient: DeleteClient,
     GetAllAttributeMappings: GetAllAttributeMappings,
-    CreateAttributeMappings: CreateAttributeMappings
+    CreateAttributeMappings: CreateAttributeMappings,
+    GetRequestById: GetRequestById
 }
