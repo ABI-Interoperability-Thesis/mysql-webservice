@@ -17,7 +17,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Landing Page for the webservice
-app.get('/', (req,res)=>res.send('MySQL Webservice'))
+app.get('/', (req,res)=>res.send('MySQL Webservice #2'))
 
 //Routing /api requests to the api router
 const apiRoutes = require('./routes/api-routes')
