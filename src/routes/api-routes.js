@@ -14,6 +14,7 @@ router.get('/models/:model_id', apiController.GetModel)
 router.get('/model-attributes/:model_id', apiController.GetModelAttributes)
 
 router.post('/models', apiController.CreateModel)
+router.delete('/models/:model_id', apiController.DeleteModel)
 
 router.post('/clients', apiController.CreateClient)
 router.get('/clients', apiController.GetClients)
@@ -22,5 +23,6 @@ router.delete('/clients/:client_id', apiController.DeleteClient)
 
 router.get('/attribute-mappings', apiController.GetAllAttributeMappings)
 router.post('/attribute-mappings', apiController.CreateAttributeMappings)
+router.delete('/attribute-mappings/:attribute_mapping_id', apiController.DeleteAttributeMapping)
 
 module.exports = router;

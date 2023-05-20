@@ -23,6 +23,10 @@ const ClientRequests = sequelize.define('client-requests', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    created_date: {
+        type: DataTypes.BIGINT,
+        allowNull: false
+    }
 }, {
     tableName: 'client_requests',
     timestamps: false

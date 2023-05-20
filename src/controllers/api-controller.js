@@ -13,6 +13,7 @@ const { GenerateConnection } = require('../utils/sequelize')
 
 const CreateRequest = async (req, res) => {
     const new_sequelize = GenerateConnection()
+    const currentTimestamp = Date.now();
     const { table_name, values, client_id, values_pre_proc } = req.body
 
     const sqlz_obj = GenerateSequelizeTable(values)
@@ -42,7 +43,8 @@ const CreateRequest = async (req, res) => {
         answered: false,
         answer: 'none',
         request_type: table_name,
-        client_id: client_id
+        client_id: client_id,
+        created_date: currentTimestamp
     })
 
     return res.send({
@@ -114,20 +116,22 @@ const UpdateRequest = (req, res) => {
 }
 
 const MatchAttribute = async (req, res) => {
-    const { attribute, value } = req.body
+    const { attribute, value, model_name } = req.body
+    const attribute_value = await AttributeMappings.findOne({
+        where: {
+            attribute,
+            value,
+            model_name
+        },
+        attributes: ['mapping']
+    })
 
-    try {
-        const attribute_value = await AttributeMappings.findOne({
-            where: {
-                attribute,
-                value
-            },
-            attributes: ['mapping']
-        })
-        return res.send(attribute_value.mapping)
-    } catch (error) {
-        return res.status(404).send(`No mapping found for ${attribute} = ${value}`)
+    if (attribute_value) {
+        return res.status(200).send(attribute_value)
+    } else {
+        return res.status(200).send({ mapping: 0 })
     }
+
 }
 
 const GetAllRequests = async (req, res) => {
@@ -290,8 +294,8 @@ const GetRequestById = async (req, res) => {
     const find_request_literal_query = `SELECT * FROM ${table_name_literal} WHERE req_id = "${req_id}"`;
     const find_request_pre_proc_query = `SELECT * FROM ${table_name_pre_proc} WHERE req_id = "${req_id}"`;
 
-    const find_request_literal =  await sequelize.query(find_request_literal_query, { type: QueryTypes.SELECT })
-    const find_request_pre_proc =  await sequelize.query(find_request_pre_proc_query, { type: QueryTypes.SELECT })
+    const find_request_literal = await sequelize.query(find_request_literal_query, { type: QueryTypes.SELECT })
+    const find_request_pre_proc = await sequelize.query(find_request_pre_proc_query, { type: QueryTypes.SELECT })
 
 
     const final_res = {
@@ -301,6 +305,30 @@ const GetRequestById = async (req, res) => {
     }
 
     return res.send(final_res)
+}
+
+const DeleteModel = async (req, res) => {
+    const model_id = req.params.model_id
+    await Models.destroy({
+        where: { model_id: model_id }
+    })
+
+    await ModelAttributes.destroy({
+        where: { model_id: model_id }
+    })
+
+    return res.send('Model and Model attributes deleted')
+
+}
+
+const DeleteAttributeMapping = async (req, res) => {
+    const attribute_mapping_id = req.params.attribute_mapping_id
+    await AttributeMappings.destroy({
+        where: { mapping_id: attribute_mapping_id }
+    })
+
+    return res.send('Attribute Mapping Deleted')
+
 }
 
 module.exports = {
@@ -319,5 +347,7 @@ module.exports = {
     DeleteClient: DeleteClient,
     GetAllAttributeMappings: GetAllAttributeMappings,
     CreateAttributeMappings: CreateAttributeMappings,
-    GetRequestById: GetRequestById
+    GetRequestById: GetRequestById,
+    DeleteModel: DeleteModel,
+    DeleteAttributeMapping: DeleteAttributeMapping
 }
