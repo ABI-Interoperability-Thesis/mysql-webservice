@@ -1,6 +1,10 @@
 {
-    "mysql":{
+    "mysql": {
         "dev": "127.0.0.1",
         "prod": "mysql-container"
+    },
+    "hl7_docs": {
+        "dev": "https://hl7-definition.caristix.com/v2-api/1/HL7v2.5.1",
+        "prod": "https://hl7-definition.caristix.com/v2-api/1/HL7v2.5.1"
     }
 }

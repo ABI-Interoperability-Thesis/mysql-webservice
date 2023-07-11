@@ -1,0 +1,7 @@
+{
+    "direct": "processed_field = raw_field",
+    "db-lookup": "const RunAsync = async () => {processed_field = await DBLookup(field, raw_field, model)}; RunAsync()",
+    "calc-age-date": "processed_field = calculateAge(raw_field)",
+    "calc-time-seconds-date": "processed_field = CalculateDateSeconds(raw_field)",
+    "calc-sec-days": "processed_field = calculateSecondsDays(raw_field)"
+}
