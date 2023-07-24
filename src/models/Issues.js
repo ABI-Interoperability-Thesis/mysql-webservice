@@ -1,21 +1,18 @@
 const { sequelize } = require('../utils/sequelize')
 const { DataTypes } = require('sequelize');
+const { v4: uuidv4 } = require('uuid');
 
-const ClientRequests = sequelize.define('client-requests', {
-    model_data_id: {
-        type: DataTypes.STRING,
-        allowNull: false,
+const Issues = sequelize.define('issues', {
+    issue_id: {
+        type: DataTypes.UUID,
+        defaultValue: () => uuidv4(),
         primaryKey: true
     },
-    answered: {
-        type: DataTypes.TINYINT,
-        allowNull: false
-    },
-    answer: {
+    issue_title: {
         type: DataTypes.STRING,
         allowNull: false
     },
-    request_type: {
+    issue_type: {
         type: DataTypes.STRING,
         allowNull: false
     },
@@ -27,13 +24,17 @@ const ClientRequests = sequelize.define('client-requests', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    created_date: {
+    answered: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false
+    },
+    created: {
         type: DataTypes.BIGINT,
         allowNull: false
     }
 }, {
-    tableName: 'client_requests',
+    tableName: 'issues',
     timestamps: false
 })
 
-module.exports = {ClientRequests}
+module.exports = { Issues }

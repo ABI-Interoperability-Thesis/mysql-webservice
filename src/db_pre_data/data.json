@@ -1,0 +1,54 @@
+{
+    "validators": [
+        {
+            "validation_name": "only-numbers",
+            "description": "This expression only allows for numeric values",
+            "doc_description": "This field will only accept numerical values.",
+            "validation_expression": "/^[0-9]+$/"
+        },
+        {
+            "validation_name": "general-strings",
+            "description": "This expression only allows for general string values (Must begin with a letter/underscore and must not contain special characters.",
+            "doc_description": "This field will only accept String values.",
+            "validation_expression": "/^[a-zA-Z_][a-zA-Z0-9_]*$/"
+        },
+        {
+            "validation_name": "hl7-date-format",
+            "description": "HL7 24 hour clock notation with the format YYYY[MM[DD[HH[MM[SS[.S[S[Sa[+/-ZZZZ].",
+            "doc_description": "This field will only accept Dates on the 24 hour clock notation with the format YYYY[MM[DD[HH[MM[SS[.S[S[Sa[+/-ZZZZ].",
+            "validation_expression": "/^\\d{4}(?:\\d{2}(?:\\d{2}(?:\\d{2}(?:\\d{2}(?:\\d{2}(?:\\.\\d{1,4})?)?)?)?)?)?(?:[+-]\\d{4})?$/"
+        }
+    ],
+    "preprocessors": [
+        {
+            "preprocessor_name": "direct",
+            "description": "This preprocessor will do nothing to the original value. It is a direct processing",
+            "doc_description": "Nothing will happen to the original data.",
+            "preprocessor_script": "processed_field = raw_field"
+        },
+        {
+            "preprocessor_name": "db-lookup",
+            "description": "This preprocessor will match the original value with it's numeric mapping in the database for this attribute",
+            "doc_description": "The data for this field will be looked up on our database.",
+            "preprocessor_script": "const RunAsync = async () => {processed_field = await DBLookup(field, raw_field, model)}; RunAsync()"
+        },
+        {
+            "preprocessor_name": "calc-age-date",
+            "description": "This preprocessor will calculate the age of a person based on their birth date",
+            "doc_description": "We will calculate the age of the patient based on the birthdate provided",
+            "preprocessor_script": "processed_field = calculateAge(raw_field)"
+        },
+        {
+            "preprocessor_name": "calc-time-seconds-date",
+            "description": "This preprocessor will calculate the amount of seconds based on the time of day given a date",
+            "doc_description": "We will calculate the ammount of seconds of the day based on the given date.",
+            "preprocessor_script": "processed_field = CalculateDateSeconds(raw_field)"
+        },
+        {
+            "preprocessor_name": "calc-sec-days",
+            "description": "This preprocessor will convert days into seconds",
+            "doc_description": "We will calculate the number of seconds based on the number of days provided.",
+            "preprocessor_script": "processed_field = calculateSecondsDays(raw_field)"
+        }
+    ]
+}

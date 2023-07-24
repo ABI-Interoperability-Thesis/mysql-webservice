@@ -23,6 +23,10 @@ app.get('/', (req,res)=>res.send('MySQL Webservice'))
 const apiRoutes = require('./routes/api-routes')
 app.use('/api', apiRoutes)
 
+//Routing /auth requests to the auth router
+const authRoutes = require('./routes/auth-routes')
+app.use('/auth', authRoutes)
+
 //Routing to Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 

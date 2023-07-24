@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const apiController = require('../controllers/api-controller')
+const auth = require('../Middelware/auth');
+const authClient = require('../Middelware/auth-client');
 
-router.get('/requests', apiController.GetAllRequests)
+router.get('/requests', auth, apiController.GetAllRequests)
 router.get('/requests/:req_id', apiController.GetRequestById)
 router.post('/create-request', apiController.CreateRequest)
 router.put('/update-request', apiController.UpdateRequest)
@@ -36,7 +38,7 @@ router.get('/hl7-segments', apiController.GetHl7Segments)
 router.get('/hl7-fields/:msg_segment', apiController.GetHl7Fields)
 router.get('/hl7-sub-fields/:hl7_field', apiController.GetHl7SubFields)
 
-router.get('/client-mappings/:client_id/:model', apiController.GetClientMappings)
+router.get('/client-mappings/:model', authClient, apiController.GetClientMappings)
 router.post('/client-mappings', apiController.CreateClientMapping)
 router.delete('/client-mappings/:mapping_id', apiController.DeleteClientMapping)
 router.put('/client-mappings/', apiController.UpdateClientMapping)
@@ -70,6 +72,19 @@ router.post('/preprocessing/:model', apiController.RunPreprocessors)
 router.post('/run-validation/:model_id', apiController.RunValidations)
 
 router.get('/check-client-mappings/:model_id/:client_id/:field', apiController.CheckClientMappings)
+
+router.get('/dash-requests', apiController.GetRequestsDashboardInfo)
+router.get('/dash-requests-by-model', apiController.GetRequestsDashboardInfoByModel)
+
+router.get('/dash-model-config', apiController.GetModelsConfiguration)
+router.get('/model-config/:model_id', apiController.GetModelsConfigurationByModel)
+
+router.put('/deploy-model/:model_id', apiController.DeployModel)
+router.put('/undeploy-model/:model_id', apiController.UndeployModel)
+
+router.get('/issues-info', apiController.GetIssuesInfo)
+
+router.post('/hl7-example', apiController.GenerateHL7Example)
 
 
 module.exports = router;

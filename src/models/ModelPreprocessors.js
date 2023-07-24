@@ -24,6 +24,10 @@ const ModelPreprocessors = sequelize.define('models-preprocessors', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    doc_description: {
+        type: DataTypes.TEXT,
+        allowNull: false
+    },
     preprocessor_name: {
         type: DataTypes.STRING,
         allowNull: false

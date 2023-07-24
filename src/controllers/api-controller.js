@@ -2,6 +2,7 @@ const { sequelize } = require('../utils/sequelize')
 const { DataTypes, QueryTypes, Model } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 const hl7utils = require('../utils/hl7')
+const bcrypt = require('bcryptjs');
 
 // Import Models
 const { ClientRequests } = require('../models/ClientRequests')
@@ -13,14 +14,15 @@ const { ClientMappings } = require('../models/ClientMappings')
 const { ClientsModels } = require('../models/ClientsModels')
 const { Validations } = require('../models/Validations')
 const { ModelValidations } = require('../models/ModelValidations')
-const { Preprocessors } = require('../models/Preprocessors')
 const { ModelPreprocessors } = require('../models/ModelPreprocessors')
+const { Preprocessors } = require('../models/Preprocessors')
+const { Issues } = require('../models/Issues')
 const { GenerateConnection } = require('../utils/sequelize')
 const { GenerateTransformerScript } = require('../utils/mirthScripts')
 
 // Import preprocessor dependencies
 const preprocessing_scripts = require('../utils/preprocessorScripts.json')
-const { calculateAge, calculateSecondsDays, CalculateDateSeconds } = require('../utils/preprocessing-funcs')
+const { calculateAge, calculateSecondsDays, CalculateDateSeconds } = require('../utils/preprocessing-funcs');
 
 const CreateRequest = async (req, res) => {
     const new_sequelize = GenerateConnection()
@@ -31,7 +33,7 @@ const CreateRequest = async (req, res) => {
     // Convert the local date and time to Unix timestamp
     const currentTimestamp = new Date(now).getTime()
 
-    const { table_name, values, client_id, values_pre_proc } = req.body
+    const { table_name, values, client_id, values_pre_proc, client_name } = req.body
 
     const sqlz_obj = GenerateSequelizeTable(values)
 
@@ -61,6 +63,7 @@ const CreateRequest = async (req, res) => {
         answer: 'none',
         request_type: table_name,
         client_id: client_id,
+        client_name,
         created_date: currentTimestamp
     })
 
@@ -231,14 +234,19 @@ const GetModelAttributes = async (req, res) => {
 }
 
 const CreateClient = async (req, res) => {
-    const { email, name, phone } = req.body
+    const { email, name, phone, password } = req.body
     const uniqueID = uuidv4()
+
+    //Encrypting the password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
     const created_client = await Clients.create({
         client_id: uniqueID,
         email,
         name,
-        phone
+        phone,
+        password: hashedPassword
     })
 
     return res.send(created_client)
@@ -417,8 +425,11 @@ const GetHl7SubFields = async (req, res) => {
 }
 
 const GetClientMappings = async (req, res) => {
-    const { client_id, model } = req.params
-    const mirth = req.query.mirth
+    const { model } = req.params
+
+    const client_id = req.user.client_id
+
+    const model_info = await Models.findOne({ where: { model_name: model } })
 
     //Checking if client has permissions to access model
 
@@ -429,12 +440,20 @@ const GetClientMappings = async (req, res) => {
         }
     })
 
-    if (!permissions || permissions.access !== 'ok') {
+    if (!permissions || permissions.access !== 'ok' || model_info.deployed !== 1) {
         return res.send({
             status: 500,
             client_mappings: []
         })
     }
+
+    // Fetch Client Info
+
+    const curr_client = await Clients.findOne({
+        where: {
+            client_id
+        }
+    })
 
     // Fetch all Model attributes and id
 
@@ -460,7 +479,8 @@ const GetClientMappings = async (req, res) => {
         mapping = await ClientMappings.findOne({
             where: {
                 field: model_attribute.name,
-                client_id
+                client_id,
+                model_id: model_data.model_id
             }
         })
 
@@ -468,7 +488,8 @@ const GetClientMappings = async (req, res) => {
             mapping = await ClientMappings.findOne({
                 where: {
                     field: model_attribute.name,
-                    client_id: 'Default'
+                    client_id: 'Default',
+                    model_id: model_data.model_id
                 }
             })
         }
@@ -479,7 +500,8 @@ const GetClientMappings = async (req, res) => {
     return res.send({
         status: 200,
         client_mappings: all_mappings,
-        model_id: model_data.model_id
+        model_id: model_data.model_id,
+        curr_client
     })
 
 }
@@ -727,6 +749,7 @@ const CreateModelValidation = async (req, res) => {
 
         validation_expression = db_validation.validation_expression
         description = db_validation.description
+        doc_description = db_validation.doc_description
     }
 
     const new_model_validation = await ModelValidations.create(
@@ -736,7 +759,8 @@ const CreateModelValidation = async (req, res) => {
             field,
             validation_name,
             description,
-            validation_expression
+            validation_expression,
+            doc_description
         }
     )
 
@@ -795,6 +819,7 @@ const CreateModelPreprocessors = async (req, res) => {
 
         preprocessor_script = db_preprocessor.preprocessor_script
         description = db_preprocessor.description
+        doc_description = db_preprocessor.doc_description
     }
 
     const new_model_validation = await ModelPreprocessors.create(
@@ -804,7 +829,8 @@ const CreateModelPreprocessors = async (req, res) => {
             field,
             preprocessor_name,
             description,
-            preprocessor_script
+            preprocessor_script,
+            doc_description
         }
     )
 
@@ -836,7 +862,7 @@ const RunValidations = async (req, res) => {
                 model_id,
                 field
             },
-            attributes: ['validation_expression']
+            attributes: ['validation_expression', 'doc_description']
         })
 
         // Remove the leading and trailing slashes if present
@@ -847,7 +873,7 @@ const RunValidations = async (req, res) => {
 
         if (validation_response !== true) is_valid = false
 
-        validated_obj[field] = { validation_response, regex: db_result['validation_expression'] }
+        validated_obj[field] = { validation_response, regex: db_result['validation_expression'], description: db_result['doc_description'] }
     }
 
     return res.send({
@@ -912,7 +938,7 @@ const CheckClientMappings = async (req, res) => {
             }
         })
 
-        if(!result) result = 'not found'
+        if (!result) result = 'not found'
 
         return res.send({
             mapping_type: 'default',
@@ -928,6 +954,180 @@ const CheckClientMappings = async (req, res) => {
 
     }
 
+}
+
+const GetRequestsDashboardInfo = async (req, res) => {
+    const total_requests = await ClientRequests.count()
+    const answered_requests = await ClientRequests.count({ where: { answered: 1 } })
+    const unanswered_requests = await ClientRequests.count({ where: { answered: 0 } })
+
+    return res.send({
+        total_requests,
+        answered_requests,
+        unanswered_requests
+    })
+}
+
+const GetRequestsDashboardInfoByModel = async (req, res) => {
+    const models = await Models.findAll({ attributes: ['model_id', 'model_name'] })
+
+    let final_res = []
+
+    for (let i = 0; i < models.length; i++) {
+        const model_id = models[i].model_id;
+        const model_name = models[i].model_name;
+
+        const total_requests = await ClientRequests.count({ where: { request_type: model_name } })
+        const answered_requests = await ClientRequests.count({ where: { answered: 1, request_type: model_name } })
+        const unanswered_requests = await ClientRequests.count({ where: { answered: 0, request_type: model_name } })
+
+        final_res.push({
+            model_id,
+            model_name,
+            total_requests,
+            answered_requests,
+            unanswered_requests
+        })
+    }
+
+    return res.send(final_res)
+}
+
+const GetModelsConfiguration = async (req, res) => {
+    const models = await Models.findAll()
+
+    let final_res = []
+
+    for (let i = 0; i < models.length; i++) {
+        const model = models[i]
+        const model_id = model.model_id;
+        const model_name = model.model_name;
+
+        console.log(model_name)
+
+        const default_mappings = await ClientMappings.count({ where: { model_id, client_id: 'Default' } })
+        const model_validations = await ModelValidations.count({ where: { model_id } })
+        const model_preprocessors = await ModelPreprocessors.count({ where: { model_id } })
+
+        const valid_mappings = default_mappings === model.attribute_count ? true : false
+        const valid_validations = model_validations === model.attribute_count ? true : false
+        const valid_preprocessors = model_preprocessors === model.attribute_count ? true : false
+
+        let configured = false
+
+        if (valid_mappings && valid_validations && valid_preprocessors) configured = true
+
+        final_res.push({
+            ...model.dataValues,
+            default_mappings,
+            model_validations,
+            model_preprocessors,
+            configured
+        })
+    }
+
+    return res.send(final_res)
+
+}
+
+const GetModelsConfigurationByModel = async (req, res) => {
+    const model_id = req.params.model_id
+    const model = await Models.findOne({ where: { model_id } })
+    const model_name = model.model_name;
+
+    console.log(model_name)
+
+    const default_mappings = await ClientMappings.count({ where: { model_id, client_id: 'Default' } })
+    const model_validations = await ModelValidations.count({ where: { model_id } })
+    const model_preprocessors = await ModelPreprocessors.count({ where: { model_id } })
+
+    const valid_mappings = default_mappings === model.attribute_count ? true : false
+    const valid_validations = model_validations === model.attribute_count ? true : false
+    const valid_preprocessors = model_preprocessors === model.attribute_count ? true : false
+
+    let configured = false
+
+    if (valid_mappings && valid_validations && valid_preprocessors) configured = true
+
+    return res.send(configured)
+}
+
+const DeployModel = async (req, res) => {
+    const model_id = req.params.model_id
+
+    const model = await Models.findOne({ where: { model_id } })
+    const default_mappings = await ClientMappings.count({ where: { model_id, client_id: 'Default' } })
+    const model_validations = await ModelValidations.count({ where: { model_id } })
+    const model_preprocessors = await ModelPreprocessors.count({ where: { model_id } })
+
+    const valid_mappings = default_mappings === model.attribute_count ? true : false
+    const valid_validations = model_validations === model.attribute_count ? true : false
+    const valid_preprocessors = model_preprocessors === model.attribute_count ? true : false
+
+    let configured = false
+
+    if (valid_mappings && valid_validations && valid_preprocessors) configured = true
+
+
+    if (configured === true) {
+        await Models.update({ deployed: true }, { where: { model_id } })
+        return res.send({
+            status: 200,
+            message: 'Model Deployed successfully'
+        })
+    } else {
+        return res.send({
+            status: 500,
+            message: 'Model not Deployed successfully',
+            valid_mappings,
+            valid_validations,
+            valid_preprocessors,
+            configured
+        })
+    }
+}
+
+const UndeployModel = async (req, res) => {
+    const model_id = req.params.model_id
+    await Models.update({ deployed: false }, { where: { model_id } })
+    return res.send({
+        status: 200,
+        message: 'Model Undeployed successfully'
+    })
+}
+
+const GetIssuesInfo = async (req, res) => {
+    const clients = await Clients.findAll({ attributes: ['client_id', 'name'] })
+
+    const final_res = []
+    for (let i = 0; i < clients.length; i++) {
+        const client = clients[i];
+        const client_id = client.client_id
+        const client_name = client.name
+
+        const open_issues = await Issues.count({ where: { answered: 0, client_id: client_id } })
+        const closed_issues = await Issues.count({ where: { answered: 1, client_id: client_id } })
+
+        final_res.push({
+            client_id,
+            client_name,
+            open_issues,
+            closed_issues
+        })
+
+    }
+
+
+    return res.send(final_res)
+}
+
+const GenerateHL7Example = async (req, res) => {
+    const { msg_type, msg_triggers, mapping, attribute_name } = req.body
+
+    const generated_message = hl7utils.GenerateHL7Message(msg_type, msg_triggers, mapping, attribute_name)
+
+
+    return res.send(generated_message)
 }
 
 
@@ -981,5 +1181,13 @@ module.exports = {
     DeleteValidations: DeleteValidations,
     DeletePreprocessors: DeletePreprocessors,
     DeleteClientModels: DeleteClientModels,
-    CheckClientMappings: CheckClientMappings
+    CheckClientMappings: CheckClientMappings,
+    GetRequestsDashboardInfo: GetRequestsDashboardInfo,
+    GetRequestsDashboardInfoByModel: GetRequestsDashboardInfoByModel,
+    GetModelsConfiguration: GetModelsConfiguration,
+    DeployModel: DeployModel,
+    UndeployModel: UndeployModel,
+    GetIssuesInfo: GetIssuesInfo,
+    GetModelsConfigurationByModel: GetModelsConfigurationByModel,
+    GenerateHL7Example: GenerateHL7Example
 }
