@@ -33,5 +33,8 @@ router.get('/requests-info', auth ,authController.GetRequestsInfo)
 router.get('/requests-info-by-model', auth ,authController.GetRequestsInfoByModel)
 
 router.get('/issues-info', auth ,authController.GetIssuesInfo)
+router.get('/user-info', auth ,authController.GetUserInfo)
+
+router.put('/change-password', auth, authController.ChangePassword)
 
 module.exports = router;

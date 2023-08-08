@@ -17,7 +17,7 @@ const CreateAccount = async (req, res) => {
 
     //Encrypting the password
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(req.body.password, salt);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
 
     const created_account = await Accounts.create({
@@ -120,6 +120,45 @@ const ClientLogin = async (req, res) => {
     return res.send({
         token
     })
+}
+
+const ChangePassword = async (req, res) => {
+    const { password, new_password } = req.body
+    const client_id = req.user.client_id
+
+    const existing_client = await Clients.findOne({
+        where: {
+            client_id
+        }
+    })
+
+    if (!existing_client) return res.send({ status: 404, message: 'Client does not exist' })
+
+    //Comparing the entered password with the one stored in the database
+    const validPassword = await bcrypt.compare(password, existing_client.password);
+
+    if (!validPassword) return res.send({
+        status: 500,
+        message: 'unauthorized'
+    });
+
+    //Encrypting the password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(new_password, salt);
+
+    const updated_client = await Clients.update({
+        password: hashedPassword
+    }, {
+        where: {
+            client_id
+        }
+    })
+
+    return res.send({
+        status: 200,
+        message: 'password changed successfully',
+    })
+
 }
 
 const CreateIssue = async (req, res) => {
@@ -388,6 +427,14 @@ const GetModelDetails = async (req, res) => {
     })
 }
 
+const GetUserInfo = async (req, res) => {
+    const client_id = req.user.client_id
+
+    const user_info = await Clients.findOne({ where: { client_id } })
+
+    return res.send(user_info)
+}
+
 module.exports = {
     CreateAccount: CreateAccount,
     Login: Login,
@@ -407,5 +454,7 @@ module.exports = {
     GetRequestsInfo: GetRequestsInfo,
     GetRequestsInfoByModel: GetRequestsInfoByModel,
     GetIssuesInfo: GetIssuesInfo,
-    GetModelDetails: GetModelDetails
+    GetModelDetails: GetModelDetails,
+    GetUserInfo: GetUserInfo,
+    ChangePassword: ChangePassword
 }

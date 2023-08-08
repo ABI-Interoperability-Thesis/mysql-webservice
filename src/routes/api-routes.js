@@ -86,5 +86,10 @@ router.get('/issues-info', apiController.GetIssuesInfo)
 
 router.post('/hl7-example', apiController.GenerateHL7Example)
 
+router.post('/mirth-channels', apiController.StoreMirthIds)
+router.get('/mirth-channels', apiController.GetMirthIds)
+
+router.post('/proxy-request', apiController.ProxyRequest)
+
 
 module.exports = router;

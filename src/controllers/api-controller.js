@@ -3,6 +3,7 @@ const { DataTypes, QueryTypes, Model } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 const hl7utils = require('../utils/hl7')
 const bcrypt = require('bcryptjs');
+const axios = require('axios');
 
 // Import Models
 const { ClientRequests } = require('../models/ClientRequests')
@@ -16,6 +17,7 @@ const { Validations } = require('../models/Validations')
 const { ModelValidations } = require('../models/ModelValidations')
 const { ModelPreprocessors } = require('../models/ModelPreprocessors')
 const { Preprocessors } = require('../models/Preprocessors')
+const { MirthChannels } = require('../models/MirthChannels')
 const { Issues } = require('../models/Issues')
 const { GenerateConnection } = require('../utils/sequelize')
 const { GenerateTransformerScript } = require('../utils/mirthScripts')
@@ -703,17 +705,16 @@ const GetValidations = async (req, res) => {
 }
 
 const CreateValidation = async (req, res) => {
-    const { validation_name, description, validation_expression } = req.body
+    const { validation_name, doc_description, description, validation_expression } = req.body
 
     const created_validation = await Validations.create({
         validation_name,
         description,
+        doc_description,
         validation_expression
     })
 
     return res.send(created_validation)
-
-
 }
 
 const GetModelValidations = async (req, res) => {
@@ -740,10 +741,12 @@ const CreateModelValidation = async (req, res) => {
 
     let validation_expression
     let description
+    let doc_description
 
     if (validation_name === 'custom') {
         validation_expression = req.body.validation_expression
         description = req.body.description
+        doc_description = req.body.doc_description
     } else {
         db_validation = await Validations.findOne({ where: { validation_name } })
 
@@ -774,12 +777,13 @@ const GetPreprocessors = async (req, res) => {
 }
 
 const CreatePreprocessors = async (req, res) => {
-    const { preprocessor_name, description, preprocessor_script } = req.body
+    const { preprocessor_name,doc_description, description, preprocessor_script } = req.body
 
     const created_preprocessor = await Preprocessors.create(
         {
             preprocessor_name,
             description,
+            doc_description,
             preprocessor_script
         }
     )
@@ -810,10 +814,12 @@ const CreateModelPreprocessors = async (req, res) => {
 
     let preprocessor_script
     let description
+    let doc_description
 
     if (preprocessor_name === 'custom') {
         preprocessor_script = req.body.preprocessor_script
         description = req.body.description
+        doc_description = req.body.doc_description
     } else {
         db_preprocessor = await Preprocessors.findOne({ where: { preprocessor_name } })
 
@@ -1130,7 +1136,39 @@ const GenerateHL7Example = async (req, res) => {
     return res.send(generated_message)
 }
 
+const StoreMirthIds = async (req, res) => {
+    const { channel_name, channel_id } = req.body
+    const new_relation = await MirthChannels.findOne({ where: { channel_name } }).then((obj) => {
+        if (obj) return obj.update({ channel_id })
 
+        return MirthChannels.create({
+            channel_name,
+            channel_id
+        })
+    });
+
+    return res.send(new_relation)
+}
+
+const GetMirthIds = async (req, res) => {
+    const runner_channel = await MirthChannels.findOne({ where: { channel_name: 'runner' } })
+    const tester_channel = await MirthChannels.findOne({ where: { channel_name: 'test' } })
+    return res.send({
+        runner_channel: runner_channel ? runner_channel.channel_id : 'not found',
+        tester_channel: tester_channel ? tester_channel.channel_id : 'not found',
+    })
+}
+
+const ProxyRequest = async (req, res) => {
+    const config = req.body.config
+    try {
+        const axios_response = await axios(config)
+        return res.send(axios_response.data)
+    } catch (error) {
+        console.log(error)
+        return res.send(error)
+    }
+}
 
 module.exports = {
     CreateRequest: CreateRequest,
@@ -1189,5 +1227,8 @@ module.exports = {
     UndeployModel: UndeployModel,
     GetIssuesInfo: GetIssuesInfo,
     GetModelsConfigurationByModel: GetModelsConfigurationByModel,
-    GenerateHL7Example: GenerateHL7Example
+    GenerateHL7Example: GenerateHL7Example,
+    StoreMirthIds: StoreMirthIds,
+    GetMirthIds: GetMirthIds,
+    ProxyRequest: ProxyRequest
 }
