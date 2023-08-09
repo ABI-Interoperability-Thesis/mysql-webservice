@@ -50,5 +50,9 @@
             "doc_description": "We will calculate the number of seconds based on the number of days provided.",
             "preprocessor_script": "processed_field = calculateSecondsDays(raw_field)"
         }
-    ]
+    ],
+    "admin-account":{
+        "username": "admin",
+        "password": "123"
+    }
 }

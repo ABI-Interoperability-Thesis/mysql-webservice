@@ -40,6 +40,8 @@ const PrepareDB = async () => {
 const PreloadData = async () => {
     const { Validations } = require('../models/Validations')
     const { Preprocessors } = require('../models/Preprocessors')
+    const { Accounts } = require('../models/Accounts')
+    const bcrypt = require('bcryptjs');
 
     console.log('Creating preloaders')
     const pre_validators = pre_load_data['validators']
@@ -59,6 +61,22 @@ const PreloadData = async () => {
         });
     }
 
+    console.log('Creating Default Admin Account')
+    const default_admin = pre_load_data['admin-account']
+
+    //Encrypting the password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(default_admin.password, salt);
+
+    const default_admin_account = {
+        username: default_admin.username,
+        password: hashedPassword
+    }
+
+    await Accounts.findOrCreate({
+        where: {username: default_admin.username},
+        defaults: default_admin_account
+    })
 }
 
 

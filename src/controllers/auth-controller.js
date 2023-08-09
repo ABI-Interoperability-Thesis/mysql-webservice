@@ -19,7 +19,6 @@ const CreateAccount = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-
     const created_account = await Accounts.create({
         username,
         password: hashedPassword
