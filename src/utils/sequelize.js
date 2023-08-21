@@ -26,6 +26,7 @@ const GenerateConnection = () => {
 }
 
 const PrepareDB = async () => {
+    console.log('Connecting to database')
     try {
         await sequelize.sync();
         PreloadData()
@@ -34,6 +35,7 @@ const PrepareDB = async () => {
             message: 'there was an error',
             error
         })
+        PrepareDB()
     }
 }
 
