@@ -11,6 +11,10 @@ const Models = sequelize.define('models', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    model_type: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     description: {
         type: DataTypes.STRING,
         allowNull: false

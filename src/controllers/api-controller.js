@@ -180,12 +180,13 @@ const DeleteRequest = async (req, res) => {
 }
 
 const CreateModel = async (req, res) => {
-    const { model_name, description, attributes } = req.body
+    const { model_name, model_type, description, attributes } = req.body
 
     const uniqueID = uuidv4()
     const new_model = await Models.create({
         model_id: uniqueID,
         model_name: model_name,
+        model_type: model_type,
         description: description,
         deployed: false,
         attribute_count: attributes.length
