@@ -24,34 +24,40 @@
             "preprocessor_name": "direct",
             "description": "This preprocessor will do nothing to the original value. It is a direct processing",
             "doc_description": "Nothing will happen to the original data.",
-            "preprocessor_script": "processed_field = raw_field"
+            "preprocessor_script": "result = input_data"
         },
         {
             "preprocessor_name": "db-lookup",
             "description": "This preprocessor will match the original value with it's numeric mapping in the database for this attribute",
             "doc_description": "The data for this field will be looked up on our database.",
-            "preprocessor_script": "const RunAsync = async () => {processed_field = await DBLookup(field, raw_field, model)}; RunAsync()"
+            "preprocessor_script": "const RunAsync = async () => {result = await DBLookup(field, input_data, model)}; RunAsync()"
         },
         {
             "preprocessor_name": "calc-age-date",
             "description": "This preprocessor will calculate the age of a person based on their birth date",
             "doc_description": "We will calculate the age of the patient based on the birthdate provided",
-            "preprocessor_script": "processed_field = calculateAge(raw_field)"
+            "preprocessor_script": "result = calculateAge(input_data)"
         },
         {
             "preprocessor_name": "calc-time-seconds-date",
             "description": "This preprocessor will calculate the amount of seconds based on the time of day given a date",
             "doc_description": "We will calculate the ammount of seconds of the day based on the given date.",
-            "preprocessor_script": "processed_field = CalculateDateSeconds(raw_field)"
+            "preprocessor_script": "result = CalculateDateSeconds(input_data)"
         },
         {
             "preprocessor_name": "calc-sec-days",
             "description": "This preprocessor will convert days into seconds",
             "doc_description": "We will calculate the number of seconds based on the number of days provided.",
-            "preprocessor_script": "processed_field = calculateSecondsDays(raw_field)"
+            "preprocessor_script": "result = calculateSecondsDays(input_data)"
+        },
+        {
+            "preprocessor_name": "calc-age-partial-date",
+            "description": "This preprocessor will calculate the age based on the birthdate provided by the partial FHIR date format.",
+            "doc_description": "This preprocessor will calculate the age based on the birthdate provided by the partial FHIR date format.",
+            "preprocessor_script": "result = calculateAgePartialDate(input_data)"
         }
     ],
-    "admin-account":{
+    "admin-account": {
         "username": "admin",
         "password": "123"
     }

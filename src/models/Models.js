@@ -24,6 +24,16 @@ const Models = sequelize.define('models', {
         allowNull: false,
         defaultValue: false
     },
+    hl7_support: {
+        type: DataTypes.TINYINT,
+        allowNull: false,
+        defaultValue: false
+    },
+    fhir_support: {
+        type: DataTypes.TINYINT,
+        allowNull: false,
+        defaultValue: false
+    },
     attribute_count: {
         type: DataTypes.INTEGER,
         allowNull: false,

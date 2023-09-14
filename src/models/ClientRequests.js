@@ -30,6 +30,10 @@ const ClientRequests = sequelize.define('client-requests', {
     created_date: {
         type: DataTypes.BIGINT,
         allowNull: false
+    },
+    request_messages: {
+        type: DataTypes.TEXT,
+        allowNull: false
     }
 }, {
     tableName: 'client_requests',

@@ -8,6 +8,7 @@ const { ModelAttributes } = require('../models/ModelAttributes')
 const { Models } = require('../models/Models')
 const { ModelValidations } = require('../models/ModelValidations')
 const { ModelPreprocessors } = require('../models/ModelPreprocessors')
+const { FhirMappings } = require('../models/FhirMappings')
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { ClientsModels } = require('../models/ClientsModels')
@@ -56,7 +57,8 @@ const Login = async (req, res) => {
     const payload = {
         account_id: account.account_id,
         username: account.username,
-        password: account.password
+        password: account.password,
+        role: "admin"
     }
     const secretKey = 'this_is_a_very_secret_key';
     const token = jwt.sign(payload, secretKey);
@@ -111,6 +113,7 @@ const ClientLogin = async (req, res) => {
         email: existing_client.email,
         name: existing_client.name,
         phone: existing_client.phone,
+        role: "client"
     }
 
     const secretKey = 'this_is_a_very_secret_key_clients';
@@ -372,40 +375,19 @@ const GetModelDetails = async (req, res) => {
 
     for (let i = 0; i < model_attributes.length; i++) {
         const model_attribute = model_attributes[i];
+        let attribute_mapping = {}
 
-        let attribute_mapping
-        attribute_mapping = await ClientMappings.findOne({
-            where: {
-                client_id,
-                field: model_attribute.name,
-                model_id
-            }
-        })
+        attribute_mapping['hl7_mapping'] = model.hl7_support ? await GetClientAttributeMapping(client_id, model_attribute.name, model_id, 'hl7') : null
+        attribute_mapping['fhir_mapping'] = model.hl7_support ? await GetClientAttributeMapping(client_id, model_attribute.name, model_id, 'fhir') : null
 
-        if (!attribute_mapping) {
-            attribute_mapping = await ClientMappings.findOne({
-                where: {
-                    client_id: "Default",
-                    field: model_attribute.name,
-                    model_id
-                }
-            })
-        }
+        let attribute_validator = {}
+        attribute_validator['hl7_mapping'] = model.hl7_support ? await GetClientAttributeValidator(model_id, model_attribute.name, 'hl7') : null
+        attribute_validator['fhir_mapping'] = model.hl7_support ? await GetClientAttributeValidator(model_id, model_attribute.name, 'fhir') : null
 
-        const attribute_validator = await ModelValidations.findOne({
-            where: {
-                model_id,
-                field: model_attribute.name
-            }
-        })
-
-        const attribute_preprocessor = await ModelPreprocessors.findOne({
-            where: {
-                model_id,
-                field: model_attribute.name
-            }
-        })
-
+        let attribute_preprocessor = {}
+        attribute_preprocessor['hl7_mapping'] = model.hl7_support ? await GetClientAttributePreprocessor(model_id, model_attribute.name, 'hl7') : null
+        attribute_preprocessor['fhir_mapping'] = model.hl7_support ? await GetClientAttributePreprocessor(model_id, model_attribute.name, 'fhir') : null
+        
         attribute_configs.push({
             ...model_attribute.dataValues,
             attribute_mapping,
@@ -424,6 +406,77 @@ const GetModelDetails = async (req, res) => {
         attribute_configs,
         client_permission
     })
+}
+
+const GetClientAttributePreprocessor = async (model_id, field, source_type) => {
+    const attribute_preprocessor = await ModelPreprocessors.findOne({
+        where: {
+            model_id,
+            field,
+            source_type
+        }
+    })
+    return attribute_preprocessor
+}
+
+const GetClientAttributeValidator = async (model_id, field, source_type) => {
+    const attribute_validator = await ModelValidations.findOne({
+        where: {
+            model_id,
+            field,
+            source_type
+        }
+    })
+
+    return attribute_validator
+}
+
+const GetClientAttributeMapping = async (client_id, field, model_id, source_type) => {
+    if (source_type === 'hl7') {
+        let attribute_mapping
+        attribute_mapping = await ClientMappings.findOne({
+            where: {
+                client_id,
+                field,
+                model_id
+            }
+        })
+
+        if (!attribute_mapping) {
+            attribute_mapping = await ClientMappings.findOne({
+                where: {
+                    client_id: "Default",
+                    field,
+                    model_id
+                }
+            })
+        }
+        console.log(attribute_mapping)
+        return attribute_mapping
+    }
+
+    if (source_type === 'fhir') {
+        let attribute_mapping
+        attribute_mapping = await FhirMappings.findOne({
+            where: {
+                client_id,
+                field,
+                model_id
+            }
+        })
+
+        if (!attribute_mapping) {
+            attribute_mapping = await FhirMappings.findOne({
+                where: {
+                    client_id: "Default",
+                    field,
+                    model_id
+                }
+            })
+        }
+        console.log(attribute_mapping)
+        return attribute_mapping
+    }
 }
 
 const GetUserInfo = async (req, res) => {

@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const hl7utils = require('../utils/hl7')
 const bcrypt = require('bcryptjs');
 const axios = require('axios');
+require('dotenv').config();
 
 // Import Models
 const { ClientRequests } = require('../models/ClientRequests')
@@ -19,12 +20,25 @@ const { ModelPreprocessors } = require('../models/ModelPreprocessors')
 const { Preprocessors } = require('../models/Preprocessors')
 const { MirthChannels } = require('../models/MirthChannels')
 const { Issues } = require('../models/Issues')
+const { FhirMappings } = require('../models/FhirMappings')
 const { GenerateConnection } = require('../utils/sequelize')
 const { GenerateTransformerScript } = require('../utils/mirthScripts')
 
+// Import Utils
+const { RunFhirMapping, RunFhirMappingUpdated } = require('./fhir-controller')
+
 // Import preprocessor dependencies
 const preprocessing_scripts = require('../utils/preprocessorScripts.json')
-const { calculateAge, calculateSecondsDays, CalculateDateSeconds } = require('../utils/preprocessing-funcs');
+const { calculateAgePartialDate, calculateAge, calculateSecondsDays, CalculateDateSeconds } = require('../utils/preprocessing-funcs');
+
+// Initializing env vars
+const mirth_ip = process.env.MIRTH_IP
+const mirth_field_extractor_port = process.env.MIRTH_FIELD_EXTRACTOR_PORT
+
+const mirth_handler_endpoint = process.env.MIRTH_HANDLER_ENDPOINT
+
+const message_queue_endpoint = process.env.MESSAGE_QUEUE_ENDPOINT
+
 
 const CreateRequest = async (req, res) => {
     const new_sequelize = GenerateConnection()
@@ -189,6 +203,8 @@ const CreateModel = async (req, res) => {
         model_type: model_type,
         description: description,
         deployed: false,
+        hl7_support: false,
+        fhir_support: false,
         attribute_count: attributes.length
     })
 
@@ -720,10 +736,12 @@ const CreateValidation = async (req, res) => {
 
 const GetModelValidations = async (req, res) => {
     const { model_id, field } = req.params
+    const source_type = req.query.source_type
 
     const validations = await ModelValidations.findOne({
         where: {
             model_id,
+            source_type,
             field
         }
     })
@@ -738,7 +756,7 @@ const GetModelValidations = async (req, res) => {
 }
 
 const CreateModelValidation = async (req, res) => {
-    const { model_id, model_name, field, validation_name } = req.body
+    const { model_id, model_name, field, validation_name, source_type } = req.body
 
     let validation_expression
     let description
@@ -761,6 +779,7 @@ const CreateModelValidation = async (req, res) => {
             model_id,
             model_name,
             field,
+            source_type,
             validation_name,
             description,
             validation_expression,
@@ -778,7 +797,7 @@ const GetPreprocessors = async (req, res) => {
 }
 
 const CreatePreprocessors = async (req, res) => {
-    const { preprocessor_name,doc_description, description, preprocessor_script } = req.body
+    const { preprocessor_name, doc_description, description, preprocessor_script } = req.body
 
     const created_preprocessor = await Preprocessors.create(
         {
@@ -794,10 +813,12 @@ const CreatePreprocessors = async (req, res) => {
 
 const GetModelPreprocessors = async (req, res) => {
     const { model_id, field } = req.params
+    const source_type = req.query.source_type
 
     const preprocessor = await ModelPreprocessors.findOne({
         where: {
             model_id,
+            source_type,
             field
         }
     })
@@ -811,7 +832,7 @@ const GetModelPreprocessors = async (req, res) => {
 }
 
 const CreateModelPreprocessors = async (req, res) => {
-    const { model_id, model_name, field, preprocessor_name } = req.body
+    const { model_id, model_name, field, preprocessor_name, source_type } = req.body
 
     let preprocessor_script
     let description
@@ -834,6 +855,7 @@ const CreateModelPreprocessors = async (req, res) => {
             model_id,
             model_name,
             field,
+            source_type,
             preprocessor_name,
             description,
             preprocessor_script,
@@ -1039,64 +1061,63 @@ const GetModelsConfiguration = async (req, res) => {
 
 const GetModelsConfigurationByModel = async (req, res) => {
     const model_id = req.params.model_id
+    const model_configuration = await GetModelConfig(model_id)
+
+    return res.send(model_configuration)
+}
+
+const GetModelConfig = async (model_id) => {
     const model = await Models.findOne({ where: { model_id } })
-    const model_name = model.model_name;
 
-    console.log(model_name)
+    const default_mappings_hl7 = await ClientMappings.count({ where: { model_id, client_id: 'Default' } })
+    const default_mappings_fhir = await FhirMappings.count({ where: { model_id, client_id: 'Default' } })
 
-    const default_mappings = await ClientMappings.count({ where: { model_id, client_id: 'Default' } })
-    const model_validations = await ModelValidations.count({ where: { model_id } })
-    const model_preprocessors = await ModelPreprocessors.count({ where: { model_id } })
+    const model_validations_hl7 = await ModelValidations.count({ where: { model_id, source_type: 'hl7' } })
+    const model_validations_fhir = await ModelValidations.count({ where: { model_id, source_type: 'fhir' } })
 
-    const valid_mappings = default_mappings === model.attribute_count ? true : false
-    const valid_validations = model_validations === model.attribute_count ? true : false
-    const valid_preprocessors = model_preprocessors === model.attribute_count ? true : false
+    const model_preprocessors_hl7 = await ModelPreprocessors.count({ where: { model_id, source_type: 'hl7' } })
+    const model_preprocessors_fhir = await ModelPreprocessors.count({ where: { model_id, source_type: 'fhir' } })
 
-    let configured = false
+    const valid_mappings_hl7 = default_mappings_hl7 === model.attribute_count ? true : false
+    const valid_mappings_fhir = default_mappings_fhir === model.attribute_count ? true : false
 
-    if (valid_mappings && valid_validations && valid_preprocessors) configured = true
+    const valid_validations_hl7 = model_validations_hl7 === model.attribute_count ? true : false
+    const valid_validations_fhir = model_validations_fhir === model.attribute_count ? true : false
 
-    return res.send(configured)
+    const valid_preprocessors_hl7 = model_preprocessors_hl7 === model.attribute_count ? true : false
+    const valid_preprocessors_fhir = model_preprocessors_fhir === model.attribute_count ? true : false
+
+    let configured_hl7 = false
+    let configured_fhir = false
+
+    if (valid_mappings_hl7 && valid_validations_hl7 && valid_preprocessors_hl7) configured_hl7 = true
+    if (valid_mappings_fhir && valid_validations_fhir && valid_preprocessors_fhir) configured_fhir = true
+
+    return {
+        configured_hl7,
+        configured_fhir
+    }
 }
 
 const DeployModel = async (req, res) => {
     const model_id = req.params.model_id
+    const { hl7_support = false, fhir_support = false } = req.body;
 
-    const model = await Models.findOne({ where: { model_id } })
-    const default_mappings = await ClientMappings.count({ where: { model_id, client_id: 'Default' } })
-    const model_validations = await ModelValidations.count({ where: { model_id } })
-    const model_preprocessors = await ModelPreprocessors.count({ where: { model_id } })
+    const model_configuration = await GetModelConfig(model_id)
 
-    const valid_mappings = default_mappings === model.attribute_count ? true : false
-    const valid_validations = model_validations === model.attribute_count ? true : false
-    const valid_preprocessors = model_preprocessors === model.attribute_count ? true : false
+    if (hl7_support === false && fhir_support === false) return res.status(500).send({ message: "The model needs a source support type" })
 
-    let configured = false
+    if (hl7_support === true && model_configuration['configured_hl7'] === false) return res.status(500).send({ message: "This model is not configured properly for HL7 support" })
+    if (fhir_support === true && model_configuration['configured_fhir'] === false) return res.status(500).send({ message: "This model is not configured properly for FHIR support" })
 
-    if (valid_mappings && valid_validations && valid_preprocessors) configured = true
+    await Models.update({ deployed: true, hl7_support, fhir_support }, { where: { model_id } })
 
-
-    if (configured === true) {
-        await Models.update({ deployed: true }, { where: { model_id } })
-        return res.send({
-            status: 200,
-            message: 'Model Deployed successfully'
-        })
-    } else {
-        return res.send({
-            status: 500,
-            message: 'Model not Deployed successfully',
-            valid_mappings,
-            valid_validations,
-            valid_preprocessors,
-            configured
-        })
-    }
+    return res.status(200).send({ message: "Model Deployed Successfully" })
 }
 
 const UndeployModel = async (req, res) => {
     const model_id = req.params.model_id
-    await Models.update({ deployed: false }, { where: { model_id } })
+    await Models.update({ deployed: false, hl7_support: false, fhir_support: false }, { where: { model_id } })
     return res.send({
         status: 200,
         message: 'Model Undeployed successfully'
@@ -1152,11 +1173,9 @@ const StoreMirthIds = async (req, res) => {
 }
 
 const GetMirthIds = async (req, res) => {
-    const runner_channel = await MirthChannels.findOne({ where: { channel_name: 'runner' } })
-    const tester_channel = await MirthChannels.findOne({ where: { channel_name: 'test' } })
+    const hl7_mapper = await MirthChannels.findOne({ where: { channel_name: 'hl7-mapper' } })
     return res.send({
-        runner_channel: runner_channel ? runner_channel.channel_id : 'not found',
-        tester_channel: tester_channel ? tester_channel.channel_id : 'not found',
+        hl7_mapper: hl7_mapper ? hl7_mapper.channel_id : 'not found',
     })
 }
 
@@ -1169,6 +1188,668 @@ const ProxyRequest = async (req, res) => {
         console.log(error)
         return res.send(error)
     }
+}
+
+const CreateRequest2 = async (req, res) => {
+    const model = req.params.model
+    const user = req.user
+
+    const user_mappings = user.role === 'authorized' ? await GetMappingsByAdmin(model, user) : await GetMappingsByUser(model, user);
+
+    if (user_mappings.status === 500) return res.send({
+        status: 500,
+        message: "User cannot perform this action"
+    })
+
+
+
+    return res.send(user_mappings)
+}
+
+const GetMappingsByAdmin = async (model, user) => {
+    const client_id = user.account_id;
+
+    // Fetch all Model attributes and id
+    const model_data = await Models.findOne({
+        where: {
+            model_name: model
+        }
+    })
+
+    const model_attributes = await ModelAttributes.findAll({
+        where: {
+            model_id: model_data.model_id
+        }
+    })
+
+    let all_mappings = []
+    for (let i = 0; i < model_attributes.length; i++) {
+        const model_attribute = model_attributes[i];
+        let mapping;
+
+        mapping = await ClientMappings.findOne({
+            where: {
+                field: model_attribute.name,
+                client_id,
+                model_id: model_data.model_id
+            }
+        })
+
+        if (!mapping) {
+            mapping = await ClientMappings.findOne({
+                where: {
+                    field: model_attribute.name,
+                    client_id: 'Default',
+                    model_id: model_data.model_id
+                }
+            })
+        }
+
+        all_mappings.push(mapping)
+    }
+
+    return all_mappings
+}
+
+const GetMappingsByUser = async (model, user) => {
+    const client_id = user.client_id;
+    const model_info = await Models.findOne({ where: { model_name: model } })
+
+    //Checking if client has permissions to access model
+
+    const permissions = await ClientsModels.findOne({
+        where: {
+            client_id,
+            model_name: model
+        }
+    })
+
+    if (!permissions || permissions.access !== 'ok' || model_info.deployed !== 1) {
+        return {
+            status: 500,
+            client_mappings: []
+        }
+    }
+
+    // Fetch Client Info
+
+    const curr_client = await Clients.findOne({
+        where: {
+            client_id
+        }
+    })
+
+    // Fetch all Model attributes and id
+
+    const model_data = await Models.findOne({
+        where: {
+            model_name: model
+        }
+    })
+
+    const model_attributes = await ModelAttributes.findAll({
+        where: {
+            model_id: model_data.model_id
+        }
+    })
+
+    // Checking Mappings for each attribute
+
+    let all_mappings = []
+    for (let i = 0; i < model_attributes.length; i++) {
+        const model_attribute = model_attributes[i];
+        let mapping;
+
+        mapping = await ClientMappings.findOne({
+            where: {
+                field: model_attribute.name,
+                client_id,
+                model_id: model_data.model_id
+            }
+        })
+
+        if (!mapping) {
+            mapping = await ClientMappings.findOne({
+                where: {
+                    field: model_attribute.name,
+                    client_id: 'Default',
+                    model_id: model_data.model_id
+                }
+            })
+        }
+
+        all_mappings.push(mapping)
+
+    }
+    return all_mappings
+}
+
+const GetMirthChannelPort = async (channel_id) => {
+    const url = `${mirth_handler_endpoint}/api/channels/channel-port/${channel_id}`
+    const method = 'get'
+    const config = { method, url }
+
+    const axios_reponse = await axios(config)
+    const mirth_port = axios_reponse.data.channel_port
+    return mirth_port
+}
+
+
+const RunModelInteroperability = async (req, res) => {
+    const { messages, source_type, model_name } = req.body
+    const test_mode = req.query.test || false
+    const user = req.user
+
+    let mirth_port
+
+    if (source_type === 'hl7') {
+        const mirth_channel = await MirthChannels.findOne({
+            where: {
+                channel_name: 'hl7-mapper'
+            }
+        })
+
+        console.log(mirth_channel)
+
+        if (!mirth_channel || mirth_channel === undefined) {
+            return res.status(500).send({ message: "Mirth Channel was not found" })
+        }
+
+        mirth_port = await GetMirthChannelPort(mirth_channel.channel_id)
+    }
+
+    // Checking body validity
+    if (!messages || !source_type) return res.status(400).send({ message: 'Body needs to contain an array of messages and the definition of source_type (hl7 or fhir).' })
+    if (!(messages.length > 0)) return res.status(400).send({ message: 'No messages provided' })
+
+    // Getting the Model Data
+    const model_data = await GetModelFromName(model_name)
+    if ((model_data === null) || !(model_data.deployed)) return res.status(404).send({ message: 'Model not found' })
+    const model_id = model_data.model_id
+
+    // Verify if model has support for requested source_type
+    const model_compatible = CheckModelCompatibilityWithSourceType(model_data, source_type)
+    if (!(model_compatible)) return res.status(501).send({ message: `Model is not compatible with requested source_type [${source_type}]` })
+
+    // Fetching all mappings for user
+    const model_mappings_response = await GetUserMappings(model_data, user, source_type)
+    if (!(model_mappings_response.permission)) return res.status(501).send({ message: model_mappings_response.message })
+    const model_mappings = model_mappings_response['mappings']
+
+    // Extracting data from the messages based on the mappings and source type
+    const extracted_fields = await ProcessMessages(model_mappings, source_type, messages, mirth_port)
+    if (!(extracted_fields.complete_req)) return res.status(400).send({ message: `Messages do not provide all necessary data.`, extracted_fields: extracted_fields['matched_fields'], source_type })
+
+    // Validating the extracted data with the database validations and source type
+    const validated_fields = await ValidateExtractedFields(extracted_fields['matched_fields'], model_id, source_type)
+    if (!(validated_fields.is_valid)) return res.status(400).send({ message: `Request data is not valid.`, validated_fields, extracted_fields: extracted_fields['matched_fields'], source_type })
+
+    // Preprocessing the extracted data based on the database preprocessors and source type
+    const preprocessed_fields = await PreprocessExtractedFields(extracted_fields['matched_fields'], model_id, source_type)
+
+    // Preparing literal fields
+    const literal_fields = Object.entries(extracted_fields['matched_fields']).reduce((acc, [key, value]) => {
+        acc[key] = value.match;
+        return acc;
+    }, {});
+
+    if (!test_mode) {
+        // Sending Data to the database
+        const created_data = await CreateNewRequest(model_data.model_name, literal_fields, preprocessed_fields, user, messages)
+
+        // Sending Preprocessed Data to Message Queue
+        const msg_queue_response = await SendDataToMessageQueue(model_data.model_name, created_data['preprocessed_data'])
+
+        // Sending the response back
+        res.send({
+            user,
+            model_data,
+            model_compatible,
+            model_mappings,
+            extracted_fields: extracted_fields['matched_fields'],
+            validated_fields,
+            preprocessed_fields,
+            literal_fields,
+            rabbimq_data: msg_queue_response,
+            source_type
+        })
+    } else {
+        res.send({
+            user,
+            model_data,
+            model_compatible,
+            model_mappings,
+            extracted_fields: extracted_fields['matched_fields'],
+            validated_fields,
+            preprocessed_fields,
+            literal_fields,
+            source_type
+        })
+    }
+
+}
+
+const TestSinglePreprocessor = async (req, res) => {
+    const { input_data, preprocessor_script } = req.body
+    if (!input_data || !preprocessor_script) return res.status(400).send({ message: 'Please enter both input data and preprocessor script' })
+
+    const result = await RunSinglePreprocessor(input_data, preprocessor_script)
+
+    return res.send({
+        result
+    })
+}
+
+const RunSinglePreprocessor = async (input_data, preprocessor_script) => {
+    let result
+    await eval(preprocessor_script)
+    return result
+}
+
+const PreprocessExtractedFields = async (extracted_fields, model_id, source_type) => {
+    // Get all field names using Object.keys()
+    const fields = Object.keys(extracted_fields);
+    const model = model_id
+
+    let preprocessed_obj = {}
+    for (let i = 0; i < fields.length; i++) {
+        const field = fields[i];
+        const db_result = await ModelPreprocessors.findOne({
+            where: {
+                model_id,
+                source_type,
+                field
+            },
+            attributes: ['preprocessor_script']
+        })
+
+        let input_data = extracted_fields[field]['match']
+        let result
+
+        if (!db_result) {
+            preprocessor_scripts
+            await eval(preprocessor_scripts['direct'])
+        } else {
+            await eval(db_result['preprocessor_script'])
+        }
+
+        preprocessed_obj[field] = result
+        console.log(result)
+    }
+
+    return preprocessed_obj
+
+}
+
+const ValidateExtractedFields = async (extracted_fields, model_id, source_type) => {
+
+    // Get all field names using Object.keys()
+    const fields = Object.keys(extracted_fields);
+
+    let is_valid = true
+
+    let validated_obj = {}
+    for (let i = 0; i < fields.length; i++) {
+        const field = fields[i];
+        const matched_value = extracted_fields[field]['match']
+        console.log(`Validating ${field} with value ${matched_value}`)
+        const db_result = await ModelValidations.findOne({
+            where: {
+                model_id,
+                source_type: source_type === 'hl7' ? 'hl7' : 'fhir',
+                field
+            },
+            attributes: ['validation_expression', 'doc_description']
+        })
+
+        // Remove the leading and trailing slashes if present
+        const trimmedRegexString = db_result['validation_expression'].replace(/^\/|\/$/g, '');
+
+        const attribute_regex = new RegExp(trimmedRegexString)
+        const validation_response = attribute_regex.test(matched_value)
+
+        if (validation_response !== true) is_valid = false
+
+        validated_obj[field] = { validation_response, regex: db_result['validation_expression'], description: db_result['doc_description'] }
+    }
+
+    return {
+        is_valid,
+        validated_obj
+    }
+
+}
+
+const TestValidation = async (req, res) => {
+    const { value, expression } = req.body
+    const validation = await RunSingleValidation(value, expression)
+    return res.send(validation)
+}
+
+const RunSingleValidation = (value, expression) => {
+    try {
+        const trimmedRegexString = expression.replace(/^\/|\/$/g, '');
+        const attribute_regex = new RegExp(trimmedRegexString)
+        const validation_response = attribute_regex.test(value)
+        return {
+            validation_response,
+            value,
+            expression
+        }
+    } catch (error) {
+        console.log(error)
+        return {
+            message: 'There was an error',
+            error
+        }
+    }
+}
+
+const ScanFHIRMessage = async (message, model_mapping) => {
+    const result = await RunFhirMappingUpdated(message, model_mapping['mapping'])
+    console.log(result)
+    if (result !== null) {
+        return {
+            status: 200,
+            extracted_field: result,
+            message: "successfully extracted the data from the message"
+        }
+    } else {
+        return {
+            status: 404,
+            message: 'could not find the data'
+        }
+    }
+}
+
+const TestHL7Resource = async (req, res) => {
+    const { message, mapping } = req.body
+    const mirth_answer = await ScanHL7Message(message, mapping)
+
+    return res.send(mirth_answer)
+}
+
+const ScanHL7Message = async (message, model_mapping, mirth_port) => {
+    try {
+        const url = `http://${mirth_ip}:${mirth_port}`
+        const method = 'post'
+        const data = message
+
+        const authorization_string = "abi-system:123";
+        const encodedString = btoa(authorization_string);
+
+        const headers = {
+            'Model-Mapping': JSON.stringify(model_mapping),
+            'Content-Type': 'text/plain',
+            'Authorization': 'Basic ' + encodedString
+        }
+
+        const config = { url, method, data, headers }
+
+        const mirth_response = await axios(config)
+
+        return mirth_response.data
+    } catch (error) {
+        return 'there was an error communicating with mirth channel'
+    }
+}
+
+const ScanMessage = async (message, model_mappings, message_index, matched_fields, source_type, mirth_port) => {
+
+    for (let i = 0; i < model_mappings.length; i++) {
+        const model_mapping = model_mappings[i];
+        console.log(`testing message #${message_index} with mapping ${model_mapping['mapping']}`)
+
+        let scan_result
+
+        if (source_type === 'hl7') {
+            scan_result = await ScanHL7Message(message, model_mapping, mirth_port)
+        } else {
+            scan_result = await ScanFHIRMessage(message, model_mapping)
+        }
+
+        const attribute_is_matched = (matched_fields[model_mapping['field']] && matched_fields[model_mapping['field']]['matched'] === true)
+
+        if (!attribute_is_matched) {
+            if (scan_result.status === 200) {
+                matched_fields[model_mapping['field']] = {
+                    matched: true,
+                    match: scan_result.extracted_field
+                }
+            } else {
+                matched_fields[model_mapping['field']] = {
+                    matched: false,
+                    mapping: model_mapping.mapping,
+                    msg_type: model_mapping.msg_type,
+                    msg_triggers: model_mapping.msg_triggers,
+                    resource_type: model_mapping.fhir_resource
+                }
+            }
+        }
+    }
+
+    return matched_fields
+}
+
+const ProcessMessages = async (model_mappings, source_type, messages, mirth_port) => {
+    let matched_fields = {}
+
+    for (let i = 0; i < messages.length; i++) {
+        const message = messages[i];
+        matched_fields = await ScanMessage(message, model_mappings, i, matched_fields, source_type, mirth_port)
+    }
+
+    let complete_req = true;
+    for (const field in matched_fields) {
+        if (matched_fields.hasOwnProperty(field) && matched_fields[field]['matched'] === false) {
+            complete_req = false;
+            break;
+        }
+    }
+
+    return { matched_fields, complete_req }
+}
+
+const GetUserMappings = async (model_data, user, source_type) => {
+    const model_id = model_data.model_id
+    const client_id = user.client_id
+
+    // If user is admin get all default mappings
+    if (user.role === 'authorized') {
+        if (source_type === 'fhir') {
+            const mappings = await FhirMappings.findAll({ where: { client_id: 'Default', model_id } })
+            return {
+                permission: true,
+                mappings: mappings,
+            }
+        }
+
+        if (source_type === 'hl7') {
+            const mappings = await ClientMappings.findAll({ where: { client_id: 'Default', model_id } })
+            return {
+                permission: true,
+                mappings: mappings,
+            }
+        }
+    } else {
+
+        //Checking if client has permissions to access model
+        const permissions = await ClientsModels.findOne({
+            where: {
+                client_id,
+                model_name: model_data.model_name
+            }
+        })
+
+        if (!permissions || permissions.access !== 'ok' || model_data.deployed !== 1) {
+            return {
+                permission: false,
+                message: 'User is unable to perform this action'
+            }
+        }
+
+        const model_attributes = await ModelAttributes.findAll({
+            where: {
+                model_id: model_data.model_id
+            }
+        })
+
+        // Checking Mappings for each attribute
+
+        let all_mappings = []
+        for (let i = 0; i < model_attributes.length; i++) {
+            const model_attribute = model_attributes[i];
+            let mapping;
+
+            if (source_type === 'hl7') {
+                mapping = await ClientMappings.findOne({
+                    where: {
+                        field: model_attribute.name,
+                        client_id,
+                        model_id: model_data.model_id
+                    }
+                })
+
+                if (!mapping) {
+                    mapping = await ClientMappings.findOne({
+                        where: {
+                            field: model_attribute.name,
+                            client_id: 'Default',
+                            model_id: model_data.model_id
+                        }
+                    })
+                }
+            } else {
+                mapping = await FhirMappings.findOne({
+                    where: {
+                        field: model_attribute.name,
+                        client_id,
+                        model_id: model_data.model_id
+                    }
+                })
+
+                if (!mapping) {
+                    mapping = await FhirMappings.findOne({
+                        where: {
+                            field: model_attribute.name,
+                            client_id: 'Default',
+                            model_id: model_data.model_id
+                        }
+                    })
+                }
+            }
+
+            all_mappings.push(mapping)
+
+        }
+        return {
+            permission: true,
+            mappings: all_mappings,
+        }
+    }
+}
+
+const CheckModelCompatibilityWithSourceType = (model_data, source_type) => {
+    let compatible
+    if (source_type === 'fhir') {
+        compatible = model_data.fhir_support ? true : false
+    }
+
+    if (source_type === 'hl7') {
+        compatible = model_data.hl7_support ? true : false
+    }
+
+    return compatible
+}
+
+const GetModelFromName = async (model_name) => {
+    const model_data = await Models.findOne({
+        where: {
+            model_name
+        }
+    })
+
+    return model_data
+}
+
+const CreateNewRequest = async (table_name, values, values_pre_proc, user, messages) => {
+    const client_id = user.role === 'authorized' ? user.account_id : user.client_id
+    const unique_id = uuidv4()
+
+    const values_pre_proc_no_req = { ...values_pre_proc }
+
+    values['req_id'] = unique_id
+    values_pre_proc['req_id'] = unique_id
+
+    const user_data = await Clients.findOne({
+        where: {
+            client_id
+        }
+    })
+    const new_sequelize = GenerateConnection()
+
+    // Get current date and time in the specified timezone
+    const now = new Date().toLocaleString('en-US', { timeZone: 'Europe/Lisbon' });
+
+    // Convert the local date and time to Unix timestamp
+    const currentTimestamp = new Date(now).getTime()
+
+    const sqlz_obj = GenerateSequelizeTable(values)
+
+    const table_options = {
+        tableName: table_name,
+        timestamps: false
+    }
+
+    const sqlz_obj_pre_proc = GenerateSequelizeTablePreProc(values)
+    const table_name_pre_proc = table_name + '_pre_proc'
+
+    const table_options_pre_proc = {
+        tableName: table_name_pre_proc,
+        timestamps: false
+    }
+
+    const NewTable = new_sequelize.define(table_name, sqlz_obj, table_options)
+    const NewTablePreProc = new_sequelize.define(table_name_pre_proc, sqlz_obj_pre_proc, table_options_pre_proc)
+
+    await new_sequelize.sync()
+    const new_row = await NewTable.create(values)
+    const new_row_pre_proc = await NewTablePreProc.create(values_pre_proc)
+
+    const new_req = await ClientRequests.create({
+        model_data_id: new_row.req_id,
+        answered: false,
+        answer: 'none',
+        request_type: table_name,
+        client_id: client_id,
+        client_name: user_data.name,
+        created_date: currentTimestamp,
+        request_messages: JSON.stringify(messages)
+    })
+
+    return {
+        new_row,
+        new_req,
+        new_row_pre_proc,
+        preprocessed_data: {
+            req_id: unique_id,
+            preprocessed_data: values_pre_proc_no_req
+        }
+    }
+}
+
+const SendDataToMessageQueue = async (model_name, preprocessed_data) => {
+    const data = {
+        model: model_name,
+        ...preprocessed_data
+    }
+
+    const url = `${message_queue_endpoint}/api/rabbitmq/message`
+    const method = 'post'
+    const config = { method, url, data }
+
+    const message_queue_response = await axios(config)
+    return message_queue_response.data
 }
 
 module.exports = {
@@ -1231,5 +1912,10 @@ module.exports = {
     GenerateHL7Example: GenerateHL7Example,
     StoreMirthIds: StoreMirthIds,
     GetMirthIds: GetMirthIds,
-    ProxyRequest: ProxyRequest
+    ProxyRequest: ProxyRequest,
+    CreateRequest2: CreateRequest2,
+    RunModelInteroperability: RunModelInteroperability,
+    TestSinglePreprocessor: TestSinglePreprocessor,
+    TestHL7Resource: TestHL7Resource,
+    TestValidation: TestValidation
 }

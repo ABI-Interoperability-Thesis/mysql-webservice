@@ -1,7 +1,7 @@
 {
-    "direct": "processed_field = raw_field",
-    "db-lookup": "const RunAsync = async () => {processed_field = await DBLookup(field, raw_field, model)}; RunAsync()",
-    "calc-age-date": "processed_field = calculateAge(raw_field)",
-    "calc-time-seconds-date": "processed_field = CalculateDateSeconds(raw_field)",
-    "calc-sec-days": "processed_field = calculateSecondsDays(raw_field)"
+    "direct": "result = input_data",
+    "db-lookup": "const RunAsync = async () => {result = await DBLookup(field, input_data, model)}; RunAsync()",
+    "calc-age-date": "result = calculateAge(input_data)",
+    "calc-time-seconds-date": "result = CalculateDateSeconds(input_data)",
+    "calc-sec-days": "result = calculateSecondsDays(input_data)"
 }

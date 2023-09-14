@@ -25,8 +25,7 @@ module.exports = function (req, res, next) {
             };
             next();
         } catch (error) {
-            return res.send({
-                status: 501,
+            return res.status(501).send({
                 message: 'Invalid Token',
                 state: false
             });

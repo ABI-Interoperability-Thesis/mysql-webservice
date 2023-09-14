@@ -50,9 +50,30 @@ const CalculateDateSeconds = (date) => {
     return null; // Invalid date format
 }
 
+const calculateAgePartialDate = (date) => {
+    const parts = date.split("-");
+    const birthYear = parseInt(parts[0], 10);
+    const birthMonth = parseInt(parts[1], 10) - 1;
+    const birthDay = parseInt(parts[2], 10);
+
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    const currentDay = today.getDate();
+
+    let age = currentYear - birthYear;
+
+    if (currentMonth < birthMonth || (currentMonth === birthMonth && currentDay < birthDay)) {
+        age--;
+    }
+
+    return age
+}
+
 
 module.exports = {
     calculateAge: calculateAge,
     calculateSecondsDays: calculateSecondsDays,
-    CalculateDateSeconds: CalculateDateSeconds
+    CalculateDateSeconds: CalculateDateSeconds,
+    calculateAgePartialDate: calculateAgePartialDate
 }

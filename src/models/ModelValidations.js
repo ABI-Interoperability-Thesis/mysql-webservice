@@ -24,6 +24,10 @@ const ModelValidations = sequelize.define('model-validations', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    source_type: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     description: {
         type: DataTypes.STRING,
         allowNull: false

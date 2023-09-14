@@ -1,12 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const apiController = require('../controllers/api-controller')
+const fhirController = require('../controllers/fhir-controller')
 const auth = require('../Middelware/auth');
 const authClient = require('../Middelware/auth-client');
 
 router.get('/requests', auth, apiController.GetAllRequests)
 router.get('/requests/:req_id', apiController.GetRequestById)
 router.post('/create-request', apiController.CreateRequest)
+router.post('/create-request-2/:model', auth, apiController.CreateRequest2)
 router.put('/update-request', apiController.UpdateRequest)
 router.post('/match-attribute', apiController.MatchAttribute)
 router.delete('/request/:table_name/:request_id', apiController.DeleteRequest)
@@ -63,6 +65,8 @@ router.get('/preprocessors', apiController.GetPreprocessors)
 router.post('/preprocessors', apiController.CreatePreprocessors)
 router.delete('/preprocessors/:preprocessor_id', apiController.DeletePreprocessors)
 
+router.post('/test-preprocessor/', apiController.TestSinglePreprocessor)
+
 router.get('/model-preprocessors/:model_id/:field', apiController.GetModelPreprocessors)
 router.post('/model-preprocessors', apiController.CreateModelPreprocessors)
 router.delete('/model-preprocessors/:preprocessor_id', apiController.DeleteModelPreprocessors)
@@ -70,6 +74,7 @@ router.delete('/model-preprocessors/:preprocessor_id', apiController.DeleteModel
 router.post('/preprocessing/:model', apiController.RunPreprocessors)
 
 router.post('/run-validation/:model_id', apiController.RunValidations)
+router.post('/test-validation', apiController.TestValidation)
 
 router.get('/check-client-mappings/:model_id/:client_id/:field', apiController.CheckClientMappings)
 
@@ -91,5 +96,20 @@ router.get('/mirth-channels', apiController.GetMirthIds)
 
 router.post('/proxy-request', apiController.ProxyRequest)
 
+router.post('/run-model-interoperability', auth, apiController.RunModelInteroperability)
+router.post('/hl7/resource/test', apiController.TestHL7Resource)
+
+
+
+
+// Fhir routes
+router.get('/fhir/versions', fhirController.GetFhirVersions)
+router.get('/fhir/schema/:version', fhirController.GetFhirSchema)
+router.get('/fhir/schema/resource-types/:version', fhirController.GetFhirResourceTypes)
+router.get('/fhir/schema/resource-types/definitions/:definition/:version', fhirController.GetFhirResourceTypesDefinitions)
+router.post('/fhir/resource/test', fhirController.TestResourceMapping)
+router.post('/fhir/mappings/', fhirController.CreateFhirMappings)
+router.get('/fhir/mappings/defaults/:model_id/:field', fhirController.GetDefaultFhirMappings)
+router.delete('/fhir/mappings/defaults/:mapping_id', fhirController.DeleteFhirMapping)
 
 module.exports = router;
