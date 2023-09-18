@@ -12,6 +12,10 @@ const Preprocessors = sequelize.define('preprocessors', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    preprocessor_source_type: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     description: {
         type: DataTypes.STRING,
         allowNull: false

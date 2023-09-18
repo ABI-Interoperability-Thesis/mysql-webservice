@@ -2,59 +2,96 @@
     "validators": [
         {
             "validation_name": "only-numbers",
+            "validation_source_type": "hl7",
             "description": "This expression only allows for numeric values",
             "doc_description": "This field will only accept numerical values.",
             "validation_expression": "/^[0-9]+$/"
         },
         {
             "validation_name": "general-strings",
+            "validation_source_type": "hl7",
             "description": "This expression only allows for general string values (Must begin with a letter/underscore and must not contain special characters.",
             "doc_description": "This field will only accept String values.",
             "validation_expression": "/^[a-zA-Z_][a-zA-Z0-9_]*$/"
         },
         {
             "validation_name": "hl7-date-format",
+            "validation_source_type": "hl7",
             "description": "HL7 24 hour clock notation with the format YYYY[MM[DD[HH[MM[SS[.S[S[Sa[+/-ZZZZ].",
             "doc_description": "This field will only accept Dates on the 24 hour clock notation with the format YYYY[MM[DD[HH[MM[SS[.S[S[Sa[+/-ZZZZ].",
             "validation_expression": "/^\\d{4}(?:\\d{2}(?:\\d{2}(?:\\d{2}(?:\\d{2}(?:\\d{2}(?:\\.\\d{1,4})?)?)?)?)?)?(?:[+-]\\d{4})?$/"
+        },
+        {
+            "validation_name": "only-numbers",
+            "validation_source_type": "fhir",
+            "description": "This expression only allows for numeric values",
+            "doc_description": "This field will only accept numerical values.",
+            "validation_expression": "/^[0-9]+$/"
+        },
+        {
+            "validation_name": "general-strings",
+            "validation_source_type": "fhir",
+            "description": "This expression only allows for general string values (Must begin with a letter/underscore and must not contain special characters.",
+            "doc_description": "This field will only accept String values.",
+            "validation_expression": "/^[a-zA-Z_][a-zA-Z0-9_]*$/"
         }
     ],
     "preprocessors": [
         {
             "preprocessor_name": "direct",
+            "preprocessor_source_type": "hl7",
             "description": "This preprocessor will do nothing to the original value. It is a direct processing",
             "doc_description": "Nothing will happen to the original data.",
             "preprocessor_script": "result = input_data"
         },
         {
             "preprocessor_name": "db-lookup",
+            "preprocessor_source_type": "hl7",
             "description": "This preprocessor will match the original value with it's numeric mapping in the database for this attribute",
             "doc_description": "The data for this field will be looked up on our database.",
             "preprocessor_script": "const RunAsync = async () => {result = await DBLookup(field, input_data, model)}; RunAsync()"
         },
         {
             "preprocessor_name": "calc-age-date",
+            "preprocessor_source_type": "hl7",
             "description": "This preprocessor will calculate the age of a person based on their birth date",
             "doc_description": "We will calculate the age of the patient based on the birthdate provided",
-            "preprocessor_script": "result = calculateAge(input_data)"
+            "preprocessor_script": "const birth_date = input_data;\r\nconst year = parseInt(birth_date.substring(0, 4));\r\nconst month = parseInt(birth_date.substring(4, 6));\r\nconst day = parseInt(birth_date.substring(6, 8));\r\nconst dateOfBirth = new Date(year, month - 1, day); // Note: month is 0-indexed in JavaScript\r\n\r\nconst now = new Date(); // get current date\r\nconst ageInMs = now.getTime() - dateOfBirth.getTime(); // get age difference in milliseconds\r\nconst ageInYears = ageInMs / 1000 / 60 / 60 / 24 / 365.25; // convert age difference to years (taking leap years into account)\r\n\r\nconst age = Math.floor(ageInYears); // get age rounded down to nearest year\r\n\r\nresult = age"
         },
         {
             "preprocessor_name": "calc-time-seconds-date",
+            "preprocessor_source_type": "hl7",
             "description": "This preprocessor will calculate the amount of seconds based on the time of day given a date",
             "doc_description": "We will calculate the ammount of seconds of the day based on the given date.",
-            "preprocessor_script": "result = CalculateDateSeconds(input_data)"
+            "preprocessor_script": "// Get date from input\r\nconst hl7DateString = input_data\r\n\r\n// Extract date and time components\r\nconst hour = parseInt(hl7DateString.substr(8, 2), 10);\r\nconst minute = parseInt(hl7DateString.substr(10, 2), 10);\r\nconst second = parseInt(hl7DateString.substr(12, 2), 10);\r\nconst fraction = parseFloat(`0.${hl7DateString.substr(14, 4) || '0'}`);\r\n\r\n// Calculate the time of day in seconds\r\nconst timeInSeconds = (hour * 3600) + (minute * 60) + second + fraction;\r\n\r\nresult = timeInSeconds"
         },
         {
             "preprocessor_name": "calc-sec-days",
+            "preprocessor_source_type": "hl7",
             "description": "This preprocessor will convert days into seconds",
             "doc_description": "We will calculate the number of seconds based on the number of days provided.",
-            "preprocessor_script": "result = calculateSecondsDays(input_data)"
+            "preprocessor_script": "const days = input_data\r\n\r\nconst secondsPerDay = 24 * 60 * 60; // number of seconds in a day (24 hours * 60 minutes * 60 seconds)\r\n\r\nconst totalSeconds = days * secondsPerDay; // calculate total seconds\r\n\r\nresult = totalSeconds"
         },
         {
             "preprocessor_name": "calc-age-partial-date",
+            "preprocessor_source_type": "fhir",
             "description": "This preprocessor will calculate the age based on the birthdate provided by the partial FHIR date format.",
             "doc_description": "This preprocessor will calculate the age based on the birthdate provided by the partial FHIR date format.",
-            "preprocessor_script": "result = calculateAgePartialDate(input_data)"
+            "preprocessor_script": "const date = input_data\r\nconst parts = date.split(\"-\");\r\nconst birthYear = parseInt(parts[0], 10);\r\nconst birthMonth = parseInt(parts[1], 10) - 1;\r\nconst birthDay = parseInt(parts[2], 10);\r\n\r\nconst today = new Date();\r\nconst currentYear = today.getFullYear();\r\nconst currentMonth = today.getMonth();\r\nconst currentDay = today.getDate();\r\n\r\nlet age = currentYear - birthYear;\r\n\r\nif (currentMonth < birthMonth || (currentMonth === birthMonth && currentDay < birthDay)) {\r\n    age--;\r\n}\r\n\r\nresult = age"
+        },
+        {
+            "preprocessor_name": "direct",
+            "preprocessor_source_type": "fhir",
+            "description": "This preprocessor will do nothing to the original value. It is a direct processing",
+            "doc_description": "Nothing will happen to the original data.",
+            "preprocessor_script": "result = input_data"
+        },
+        {
+            "preprocessor_name": "db-lookup",
+            "preprocessor_source_type": "fhir",
+            "description": "This preprocessor will match the original value with it's numeric mapping in the database for this attribute",
+            "doc_description": "The data for this field will be looked up on our database.",
+            "preprocessor_script": "const RunAsync = async () => {result = await DBLookup(field, input_data, model)}; RunAsync()"
         }
     ],
     "admin-account": {

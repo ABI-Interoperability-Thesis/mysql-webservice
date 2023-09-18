@@ -40,15 +40,19 @@ const GetFhirSchemaFromSystem = async (version) => {
 }
 
 const TestResourceMapping = async (req, res) => {
-    const { fhir_resource, mapping } = req.body
+    const { fhir_resource, mapping_obj } = req.body
     console.log('Running Updated')
-    const mapping_response = await RunFhirMappingUpdated(fhir_resource, mapping)
+    const mapping_response = await RunFhirMappingUpdated(fhir_resource, mapping_obj)
     return res.send({
         response: mapping_response
     })
 }
 
-const RunFhirMappingUpdated = (fhir_resource, mapping) => {
+const RunFhirMappingUpdated = (fhir_resource, mapping_obj) => {
+    const {resource_type, mapping} = mapping_obj
+    const fhir_resource_type = fhir_resource['resourceType']
+    if (resource_type !== fhir_resource_type) return null
+
     const keys = mapping.split(".");
     let currentObj = fhir_resource;
 
@@ -124,37 +128,6 @@ const CreateFhirMappings = async (req, res) => {
                 mapping_docs: JSON.stringify(mapping_docs)
             }
         )
-
-        // Creating possible validator with mapping docs info
-
-        const model_name = 'default_name'
-
-        mapping_docs.map(async (doc) => {
-            if (doc['final'] === true && (doc['field_data']['reference_data']['pattern'] && doc['field_data']['reference_data']['description'])) {
-                const existing_mapping = await ModelValidations.findOne({
-                    where: {
-                        model_id,
-                        field,
-                        source_type: 'fhir'
-                    }
-                })
-
-                if (existing_mapping === null) {
-                    await ModelValidations.create(
-                        {
-                            model_id,
-                            model_name,
-                            field,
-                            source_type: 'fhir',
-                            validation_name: 'fhir-pattern',
-                            description: 'An automatically generated validation pattern based on the fhir documentation for this mapping field.',
-                            validation_expression: doc['field_data']['reference_data']['pattern'],
-                            doc_description: doc['field_data']['reference_data']['description']
-                        }
-                    )
-                }
-            }
-        })
 
         return res.send(new_mapping)
     } catch (error) {

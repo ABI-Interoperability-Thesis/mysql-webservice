@@ -53,7 +53,7 @@ router.get('/default-check/:model_id/:field', apiController.DefaultCheck)
 
 router.get('/preprocessing-options', apiController.GetPreprocessingOptions)
 
-router.get('/validations', apiController.GetValidations)
+router.get('/validations/:source_type', apiController.GetValidations)
 router.post('/validations', apiController.CreateValidation)
 router.delete('/validations/:validation_id', apiController.DeleteValidations)
 
@@ -61,7 +61,7 @@ router.get('/model-validations/:model_id/:field', apiController.GetModelValidati
 router.post('/model-validations', apiController.CreateModelValidation)
 router.delete('/model-validations/:validation_id', apiController.DeleteModelValidations)
 
-router.get('/preprocessors', apiController.GetPreprocessors)
+router.get('/preprocessors/:source_type', apiController.GetPreprocessors)
 router.post('/preprocessors', apiController.CreatePreprocessors)
 router.delete('/preprocessors/:preprocessor_id', apiController.DeletePreprocessors)
 

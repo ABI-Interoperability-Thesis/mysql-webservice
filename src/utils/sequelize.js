@@ -51,14 +51,14 @@ const PreloadData = async () => {
 
     for (const pre_validator of pre_validators) {
         await Validations.findOrCreate({
-            where: { validation_name: pre_validator.validation_name, description: pre_validator.description, validation_expression: pre_validator.validation_expression }, // Condition based on email to check if the user exists.
+            where: { validation_name: pre_validator.validation_name,validation_source_type:pre_validator.validation_source_type,  description: pre_validator.description, validation_expression: pre_validator.validation_expression }, // Condition based on email to check if the user exists.
             defaults: pre_validator,
         });
     }
 
     for (const pre_preprocessor of pre_preprocessors) {
         await Preprocessors.findOrCreate({
-            where: { preprocessor_name: pre_preprocessor.preprocessor_name, description: pre_preprocessor.description, preprocessor_script: pre_preprocessor.preprocessor_script }, // Condition based on email to check if the user exists.
+            where: { preprocessor_name: pre_preprocessor.preprocessor_name, preprocessor_source_type: pre_preprocessor.preprocessor_source_type, description: pre_preprocessor.description, preprocessor_script: pre_preprocessor.preprocessor_script }, // Condition based on email to check if the user exists.
             defaults: pre_preprocessor,
         });
     }

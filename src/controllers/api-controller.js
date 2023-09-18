@@ -716,16 +716,22 @@ const GetPreprocessingOptions = async (req, res) => {
 }
 
 const GetValidations = async (req, res) => {
-    const validations = await Validations.findAll()
+    const source_type = req.params.source_type
+    const validations = await Validations.findAll({
+        where: {
+            validation_source_type: source_type
+        }
+    })
 
     return res.send(validations)
 }
 
 const CreateValidation = async (req, res) => {
-    const { validation_name, doc_description, description, validation_expression } = req.body
+    const { validation_name, validation_source_type, doc_description, description, validation_expression } = req.body
 
     const created_validation = await Validations.create({
         validation_name,
+        validation_source_type,
         description,
         doc_description,
         validation_expression
@@ -791,17 +797,23 @@ const CreateModelValidation = async (req, res) => {
 }
 
 const GetPreprocessors = async (req, res) => {
-    const preprocessors = await Preprocessors.findAll()
+    const source_type = req.params.source_type
+    const preprocessors = await Preprocessors.findAll({
+        where: {
+            preprocessor_source_type: source_type
+        }
+    })
 
     return res.send(preprocessors)
 }
 
 const CreatePreprocessors = async (req, res) => {
-    const { preprocessor_name, doc_description, description, preprocessor_script } = req.body
+    const { preprocessor_name, preprocessor_source_type, doc_description, description, preprocessor_script } = req.body
 
     const created_preprocessor = await Preprocessors.create(
         {
             preprocessor_name,
+            preprocessor_source_type,
             description,
             doc_description,
             preprocessor_script
@@ -843,7 +855,7 @@ const CreateModelPreprocessors = async (req, res) => {
         description = req.body.description
         doc_description = req.body.doc_description
     } else {
-        db_preprocessor = await Preprocessors.findOne({ where: { preprocessor_name } })
+        db_preprocessor = await Preprocessors.findOne({ where: { preprocessor_name, preprocessor_source_type: source_type } })
 
         preprocessor_script = db_preprocessor.preprocessor_script
         description = db_preprocessor.description
@@ -1034,24 +1046,39 @@ const GetModelsConfiguration = async (req, res) => {
 
         console.log(model_name)
 
+        // HL7 Configuration
         const default_mappings = await ClientMappings.count({ where: { model_id, client_id: 'Default' } })
-        const model_validations = await ModelValidations.count({ where: { model_id } })
-        const model_preprocessors = await ModelPreprocessors.count({ where: { model_id } })
+        const model_validations = await ModelValidations.count({ where: { model_id, source_type: 'hl7' } })
+        const model_preprocessors = await ModelPreprocessors.count({ where: { model_id, source_type: 'hl7' } })
 
+        // FHIR Configuration
+        const default_mappings_fhir = await FhirMappings.count({ where: { model_id, client_id: 'Default' } })
+        const model_validations_fhir = await ModelValidations.count({ where: { model_id, source_type: 'fhir' } })
+        const model_preprocessors_fhir = await ModelPreprocessors.count({ where: { model_id, source_type: 'fhir' } })
+
+        // HL7 Checks
         const valid_mappings = default_mappings === model.attribute_count ? true : false
         const valid_validations = model_validations === model.attribute_count ? true : false
         const valid_preprocessors = model_preprocessors === model.attribute_count ? true : false
 
+        // FHIR Checks
+        const valid_mappings_fhir = default_mappings_fhir === model.attribute_count ? true : false
+        const valid_validations_fhir = model_validations_fhir === model.attribute_count ? true : false
+        const valid_preprocessors_fhir = model_preprocessors_fhir === model.attribute_count ? true : false
+
         let configured = false
+        let configured_fhir = false
 
         if (valid_mappings && valid_validations && valid_preprocessors) configured = true
+        if (valid_mappings_fhir && valid_validations_fhir && valid_preprocessors_fhir) configured_fhir = true
 
         final_res.push({
             ...model.dataValues,
             default_mappings,
             model_validations,
             model_preprocessors,
-            configured
+            configured,
+            configured_fhir
         })
     }
 
@@ -1430,10 +1457,21 @@ const RunModelInteroperability = async (req, res) => {
 }
 
 const TestSinglePreprocessor = async (req, res) => {
-    const { input_data, preprocessor_script } = req.body
+    const { input_data, preprocessor_script, field, model } = req.body
+    const db_lookup = req.query.db_lookup === 'true'
+
     if (!input_data || !preprocessor_script) return res.status(400).send({ message: 'Please enter both input data and preprocessor script' })
 
-    const result = await RunSinglePreprocessor(input_data, preprocessor_script)
+    let result
+    if (db_lookup === true) {
+        if (field !== undefined && model !== undefined) {
+            result = await DBLookup(field, input_data, model)
+        } else {
+            return res.status(500).send({ message: 'There is not enough data to run the DB Lookup preprocessor' })
+        }
+    } else {
+        result = await RunSinglePreprocessor(input_data, preprocessor_script)
+    }
 
     return res.send({
         result
@@ -1460,7 +1498,7 @@ const PreprocessExtractedFields = async (extracted_fields, model_id, source_type
                 source_type,
                 field
             },
-            attributes: ['preprocessor_script']
+            attributes: ['preprocessor_script', 'preprocessor_name']
         })
 
         let input_data = extracted_fields[field]['match']
@@ -1470,7 +1508,11 @@ const PreprocessExtractedFields = async (extracted_fields, model_id, source_type
             preprocessor_scripts
             await eval(preprocessor_scripts['direct'])
         } else {
-            await eval(db_result['preprocessor_script'])
+            if(db_result.preprocessor_name === 'db_lookup') {
+                result = await DBLookup(field, input_data, model)
+            }else{
+                await eval(db_result['preprocessor_script'])
+            }
         }
 
         preprocessed_obj[field] = result
@@ -1546,7 +1588,12 @@ const RunSingleValidation = (value, expression) => {
 }
 
 const ScanFHIRMessage = async (message, model_mapping) => {
-    const result = await RunFhirMappingUpdated(message, model_mapping['mapping'])
+    const mapping_obj = {
+        resource_type: model_mapping['fhir_resource'],
+        mapping: model_mapping['mapping']
+    }
+    
+    const result = await RunFhirMappingUpdated(message, mapping_obj)
     console.log(result)
     if (result !== null) {
         return {
