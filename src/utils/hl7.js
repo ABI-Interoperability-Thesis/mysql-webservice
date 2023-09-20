@@ -1,7 +1,7 @@
 const endpoints = require('../config/endpoints.json')
 require('dotenv').config();
 const runtime_env = process.env.ENV
-const endpoint = endpoints['hl7_docs'][runtime_env]
+const endpoint = endpoints['hl7_docs']
 const axios = require('axios')
 
 const getHl7MessageTypes = async () => {

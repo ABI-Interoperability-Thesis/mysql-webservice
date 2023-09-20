@@ -1,6 +1,3 @@
 {
-    "hl7_docs": {
-        "dev": "https://hl7-definition.caristix.com/v2-api/1/HL7v2.5.1",
-        "prod": "https://hl7-definition.caristix.com/v2-api/1/HL7v2.5.1"
-    }
+    "hl7_docs": "https://hl7-definition.caristix.com/v2-api/1/HL7v2.5.1"
 }

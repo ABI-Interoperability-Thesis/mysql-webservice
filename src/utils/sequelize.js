@@ -9,6 +9,9 @@ const db_user = process.env.DB_USERNAME
 const db_password = process.env.DB_PASSWORD
 const db_name = process.env.DB_NAME
 
+const admin_username = process.env.ADMIN_USERNAME
+const admin_password = process.env.ADMIN_PASSWORD
+
 const pre_load_data = require('../db_pre_data/data.json')
 
 const sequelize = new Sequelize(db_name, db_user, db_password, {
@@ -17,12 +20,17 @@ const sequelize = new Sequelize(db_name, db_user, db_password, {
 });
 
 const GenerateConnection = () => {
-    const sequelize_conn = new Sequelize(db_name, db_user, db_password, {
-        host: endpoint,
-        dialect: 'mysql'
-    });
-
-    return sequelize_conn
+    try {
+        const sequelize_conn = new Sequelize(db_name, db_user, db_password, {
+            host: endpoint,
+            dialect: 'mysql'
+        });
+    
+        return sequelize_conn
+    } catch (error) {
+        console.log('there was an error connecting to the database')
+        GenerateConnection()
+    }
 }
 
 const PrepareDB = async () => {
@@ -64,7 +72,10 @@ const PreloadData = async () => {
     }
 
     console.log('Creating Default Admin Account')
-    const default_admin = pre_load_data['admin-account']
+    const default_admin = {
+        "username": admin_username,
+        "password": admin_password
+    }
 
     //Encrypting the password
     const salt = await bcrypt.genSalt(10);
