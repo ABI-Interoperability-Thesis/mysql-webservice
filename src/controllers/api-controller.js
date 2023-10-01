@@ -1370,19 +1370,7 @@ const RunModelInteroperability = async (req, res) => {
     let mirth_port
 
     if (source_type === 'hl7') {
-        const mirth_channel = await MirthChannels.findOne({
-            where: {
-                channel_name: 'hl7-mapper'
-            }
-        })
-
-        console.log(mirth_channel)
-
-        if (!mirth_channel || mirth_channel === undefined) {
-            return res.status(500).send({ message: "Mirth Channel was not found" })
-        }
-
-        mirth_port = await GetMirthChannelPort(mirth_channel.channel_id)
+        mirth_port = await FetchMirthConnectChannelPort()
     }
 
     // Checking body validity
@@ -1508,9 +1496,9 @@ const PreprocessExtractedFields = async (extracted_fields, model_id, source_type
             preprocessor_scripts
             await eval(preprocessor_scripts['direct'])
         } else {
-            if(db_result.preprocessor_name === 'db_lookup') {
+            if (db_result.preprocessor_name === 'db_lookup') {
                 result = await DBLookup(field, input_data, model)
-            }else{
+            } else {
                 await eval(db_result['preprocessor_script'])
             }
         }
@@ -1592,7 +1580,7 @@ const ScanFHIRMessage = async (message, model_mapping) => {
         resource_type: model_mapping['fhir_resource'],
         mapping: model_mapping['mapping']
     }
-    
+
     const result = await RunFhirMappingUpdated(message, mapping_obj)
     console.log(result)
     if (result !== null) {
@@ -1609,9 +1597,26 @@ const ScanFHIRMessage = async (message, model_mapping) => {
     }
 }
 
+const FetchMirthConnectChannelPort = async () => {
+    const mirth_channel = await MirthChannels.findOne({
+        where: {
+            channel_name: 'hl7-mapper'
+        }
+    })
+
+    if (!mirth_channel || mirth_channel === undefined) {
+        return res.status(500).send({ message: "Mirth Channel was not found" })
+    }
+
+    mirth_port = await GetMirthChannelPort(mirth_channel.channel_id)
+
+    return mirth_port
+}
+
 const TestHL7Resource = async (req, res) => {
     const { message, mapping } = req.body
-    const mirth_answer = await ScanHL7Message(message, mapping)
+    const mirth_port = await FetchMirthConnectChannelPort()
+    const mirth_answer = await ScanHL7Message(message, mapping, mirth_port)
 
     return res.send(mirth_answer)
 }
