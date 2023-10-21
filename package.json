@@ -32,5 +32,9 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^4.6.2",
     "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "semantic-release": "^22.0.5"
   }
 }
