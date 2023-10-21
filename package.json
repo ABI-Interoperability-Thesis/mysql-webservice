@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/app",
-    "dev": "nodemon src/app"
+    "dev": "nodemon src/app",
+    "test": "npx jest --testMatch='**/__tests__/**/*.test.js' --collectCoverage=true"
   },
   "repository": {
     "type": "git",
