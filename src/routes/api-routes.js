@@ -112,4 +112,6 @@ router.post('/fhir/mappings/', fhirController.CreateFhirMappings)
 router.get('/fhir/mappings/defaults/:model_id/:field', fhirController.GetDefaultFhirMappings)
 router.delete('/fhir/mappings/defaults/:mapping_id', fhirController.DeleteFhirMapping)
 
+router.get('/teste/guedes', apiController.TestGuedes)
+
 module.exports = router;
