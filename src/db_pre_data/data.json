@@ -34,6 +34,13 @@
             "description": "This expression only allows for general string values (Must begin with a letter/underscore and must not contain special characters.",
             "doc_description": "This field will only accept String values.",
             "validation_expression": "/^[a-zA-Z_][a-zA-Z0-9_]*$/"
+        },
+        {
+            "validation_name": "fhir-date-format",
+            "validation_source_type": "fhir",
+            "description": "A date or partial date (e.g. just year or year + month). There is no time zone. The format is a union of the schema types gYear, gYearMonth and date. Dates SHALL be valid dates.",
+            "doc_description": "A date or partial date (e.g. just year or year + month). There is no time zone. The format is a union of the schema types gYear, gYearMonth and date. Dates SHALL be valid dates.",
+            "validation_expression": "^([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1]))?)?$"
         }
     ],
     "preprocessors": [
