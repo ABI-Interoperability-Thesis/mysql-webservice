@@ -1,0 +1,25 @@
+name: Release Version
+
+on:
+  push:
+    branches: [ "main" ]
+jobs:
+  build-and-publish-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Unit Tests
+        run: npm test
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACTION_TOKEN }}
+          NPM_TOKEN: ${{ secrets.ACTION_TOKEN }}
+        run: npx semantic-release
+
+        
