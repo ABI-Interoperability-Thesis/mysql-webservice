@@ -18,7 +18,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Landing Page for the webservice
-app.get('/', (req,res)=>res.send(`Interoperator Microservice | ${runtime_env}`))
+app.get('/', (req,res)=>res.send(`Interoperator Microservice | ${runtime_env}
+Visit /api-docs for all route documentation`))
 
 //Routing /api requests to the api router
 const apiRoutes = require('./routes/api-routes')
