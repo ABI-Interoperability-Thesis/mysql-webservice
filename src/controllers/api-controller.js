@@ -1904,6 +1904,10 @@ const SendDataToMessageQueue = async (model_name, preprocessed_data) => {
     return message_queue_response.data
 }
 
+const TestGuedes = (req, res) => {
+    return res.send('This is test guedes')
+}
+
 module.exports = {
     CreateRequest: CreateRequest,
     UpdateRequest: UpdateRequest,
@@ -1969,5 +1973,6 @@ module.exports = {
     RunModelInteroperability: RunModelInteroperability,
     TestSinglePreprocessor: TestSinglePreprocessor,
     TestHL7Resource: TestHL7Resource,
-    TestValidation: TestValidation
+    TestValidation: TestValidation,
+    TestGuedes: TestGuedes
 }
