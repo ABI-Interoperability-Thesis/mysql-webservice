@@ -1,88 +1,65 @@
 const endpoints = require('../config/endpoints.json')
 require('dotenv').config();
+const fs = require('fs')
+const path = require('path');
 const runtime_env = process.env.ENV
 const endpoint = endpoints['hl7_docs']
 const axios = require('axios')
 
 const getHl7MessageTypes = async () => {
-    const config = {
-        method: 'get',
-        url: `${endpoint}/Tables/0076`,
-        headers: {}
-    };
-    const axios_response = await axios(config)
-    const hl7_msg_types = axios_response.data.entries
-
-    return hl7_msg_types
+    try {
+        const jsonPath = path.join(__dirname, '..', 'hl7', '2.5.1', 'msg_types.json');
+        const msg_types = JSON.parse(await fs.readFileSync(jsonPath, 'utf8'));
+        return msg_types
+    } catch (error) {
+        return []
+    }
 }
 
 const getHl7MessageTriggers = async () => {
     try {
-        const config = {
-            method: 'get',
-            url: `${endpoint}/TriggerEvents`,
-            headers: {}
-        };
-
-        const axios_response = await axios(config)
-        const hl7_msg_triggers = axios_response.data
-
-        const hl7_msg_triggers_ids = hl7_msg_triggers.map(obj => obj.id);
-
-        const hl7_msg_triggers_ids_processed = hl7_msg_triggers_ids.map(trigger => {
-            const parts = trigger.split('_');
-            return parts.length > 1 ? parts[1] : trigger;
-        });
-
-        return hl7_msg_triggers_ids_processed
+        const jsonPath = path.join(__dirname, '..', 'hl7', '2.5.1', 'msg_triggers.json');
+        const msg_triggers = JSON.parse(await fs.readFileSync(jsonPath, 'utf8'));
+        return msg_triggers
     } catch (error) {
         return []
     }
 }
 
 const getHl7MessageSegments = async () => {
-    const config = {
-        method: 'get',
-        url: `${endpoint}/Segments`,
-        headers: {}
-    };
-
-    const axios_response = await axios(config)
-    const hl7_msg_segments = axios_response.data
-
-    const hl7_msg_segments_ids = hl7_msg_segments.map(obj => obj.id);
-
-    return hl7_msg_segments_ids
+    try {
+        const jsonPath = path.join(__dirname, '..', 'hl7', '2.5.1', 'msg_segments_fields.json');
+        const msg_fields = JSON.parse(await fs.readFileSync(jsonPath, 'utf8'));
+        const msg_segments = Object.keys(msg_fields)
+        console.log(msg_segments)
+        return Object.keys(msg_fields)
+    } catch (error) {
+        console.log(error)
+        return []
+    }
 }
 
 const getHl7MessageFields = async (msg_segment) => {
-    const config = {
-        method: 'get',
-        url: `${endpoint}/Segments/${msg_segment}`,
-        headers: {}
-    };
-
-    const axios_response = await axios(config)
-    const hl7_msg_segments = axios_response.data
-
-    const hl7_msg_segments_ids = hl7_msg_segments.fields.map(obj => obj.id);
-
-    return hl7_msg_segments_ids
+    try {
+        const jsonPath = path.join(__dirname, '..', 'hl7', '2.5.1', 'msg_segments_fields.json');
+        const msg_fields = JSON.parse(await fs.readFileSync(jsonPath, 'utf8'));
+        const selected_segment = msg_fields[msg_segment]
+        return Object.keys(selected_segment)
+    } catch (error) {
+        return []
+    }
 }
 
 const getHl7MessageSubFields = async (msg_segment) => {
-    const config = {
-        method: 'get',
-        url: `${endpoint}/Fields/${msg_segment}`,
-        headers: {}
-    };
-
-    const axios_response = await axios(config)
-    const hl7_msg_segments = axios_response.data
-
-    const hl7_msg_segments_ids = hl7_msg_segments.fields.map(obj => obj.id);
-
-    return hl7_msg_segments_ids
+    try {
+        const jsonPath = path.join(__dirname, '..', 'hl7', '2.5.1', 'msg_segments_fields.json');
+        const msg_fields = JSON.parse(await fs.readFileSync(jsonPath, 'utf8'));
+        const formatted_segment = msg_segment.split('.')[0]
+        const selected_segment = msg_fields[formatted_segment]
+        return selected_segment[msg_segment]
+    } catch (error) {
+        return []
+    }
 }
 
 const GenerateHL7Message = (msg_type, msg_triggers, mapping, attribute_name) => {
@@ -108,7 +85,7 @@ const GenerateHL7Segment = (mapping, msg_type, attribute_name) => {
 
     let generated_segment = ''
 
-    if(msg_type === 'ORU') {
+    if (msg_type === 'ORU') {
         generated_segment += `\nOBX|||${attribute_name}`
         curr_iteration = 4
     }
